@@ -116,8 +116,8 @@ public class JobService {
                 request.setTitle(cells.get(0).trim());
                 request.setDepartment(cells.get(1).trim());
                 request.setLocation(cells.get(2).trim());
-                request.setSalaryMin(parseDecimal(cells.get(3).trim(), lineNo));
-                request.setSalaryMax(parseDecimal(cells.get(4).trim(), lineNo));
+                request.setSalaryMin(parseDecimal(cells.get(3).trim(), lineNo, "salaryMin"));
+                request.setSalaryMax(parseDecimal(cells.get(4).trim(), lineNo, "salaryMax"));
                 request.setExperienceRequirement(cells.get(5).trim());
                 request.setEducationRequirement(cells.get(6).trim());
                 request.setSkills(cells.get(7).trim());
@@ -290,17 +290,19 @@ public class JobService {
         return account.getEnterpriseName().trim();
     }
 
-    private BigDecimal parseDecimal(String value, int lineNo) {
+    private BigDecimal parseDecimal(String value, int lineNo, String fieldName) {
         if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException("Salary value is required at line " + lineNo);
+            throw new IllegalArgumentException(fieldName + " is required at line " + lineNo);
         }
         if (value.length() > MAX_DECIMAL_INPUT_LENGTH) {
-            throw new IllegalArgumentException("Salary value exceeds maximum length at line " + lineNo);
+            throw new IllegalArgumentException(
+                fieldName + " exceeds maximum length of " + MAX_DECIMAL_INPUT_LENGTH + " characters at line " + lineNo
+            );
         }
         try {
             return new BigDecimal(value);
         } catch (NumberFormatException ex) {
-            throw new IllegalArgumentException("Invalid salary value at line " + lineNo);
+            throw new IllegalArgumentException("Invalid " + fieldName + " at line " + lineNo);
         }
     }
 
