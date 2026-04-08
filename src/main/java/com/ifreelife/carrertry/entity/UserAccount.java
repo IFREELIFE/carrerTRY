@@ -50,6 +50,15 @@ public class UserAccount {
     @Column(length = 64)
     private String legalRepresentative;
 
+    @Column(length = 32)
+    private String phone;
+
+    @Column(length = 64)
+    private String major;
+
+    @Column(nullable = false)
+    private Boolean onboardingCompleted = Boolean.FALSE;
+
     @Column(nullable = false)
     private LocalDateTime createdAt;
 

@@ -9,25 +9,30 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @Entity
-@Table(name = "ai_task")
-public class AiTask {
+@Table(name = "rag_record")
+public class RagRecord {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Lob
     @Column(nullable = false)
-    private String taskName;
+    private String queryText;
+
+    @Lob
+    @Column(nullable = false)
+    private String retrievedContext;
 
     @Column(nullable = false)
-    private String taskStatus;
-
-    @Column(length = 1024)
-    private String errorMessage;
+    private Double qualityScore;
 
     @Column(nullable = false)
-    private Integer retryCount = 0;
+    private Double confidence;
 
     @Column(nullable = false)
-    private LocalDateTime updatedAt = LocalDateTime.now();
+    private Boolean released;
+
+    @Column(nullable = false)
+    private LocalDateTime createdAt = LocalDateTime.now();
 }

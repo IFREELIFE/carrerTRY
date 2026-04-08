@@ -9,24 +9,24 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @Entity
-@Table(name = "ai_task")
-public class AiTask {
+@Table(name = "acceptance_checklist_item")
+public class AcceptanceChecklistItem {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(nullable = false)
-    private String taskName;
+    private Integer stepNo;
+
+    @Column(nullable = false, length = 256)
+    private String itemName;
 
     @Column(nullable = false)
-    private String taskStatus;
+    private Boolean doneFlag = Boolean.FALSE;
 
-    @Column(length = 1024)
-    private String errorMessage;
-
-    @Column(nullable = false)
-    private Integer retryCount = 0;
+    @Column(length = 512)
+    private String note;
 
     @Column(nullable = false)
     private LocalDateTime updatedAt = LocalDateTime.now();

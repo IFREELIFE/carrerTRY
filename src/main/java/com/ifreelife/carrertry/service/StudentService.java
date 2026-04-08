@@ -20,11 +20,15 @@ public class StudentService {
     private final StudentApplicationRepository studentApplicationRepository;
     private final JobService jobService;
     private final UserAccountRepository userAccountRepository;
+    private final MilestoneService milestoneService;
 
     @Transactional
     public StudentApplication apply(ApplyRequest request) {
         JobPosting jobPosting = jobService.getApprovedById(request.getJobId());
         UserAccount account = loadCurrentStudentAccount();
+        if (!Boolean.TRUE.equals(account.getOnboardingCompleted())) {
+            throw new IllegalArgumentException("Complete first-login onboarding before applying");
+        }
         if (studentApplicationRepository.existsByStudentUsernameAndJobId(account.getUsername(), request.getJobId())) {
             throw new IllegalArgumentException("Already applied to this job");
         }
@@ -33,7 +37,9 @@ public class StudentService {
         application.setStudentUsername(account.getUsername());
         application.setStudentName(account.getDisplayName());
         application.setResumeSummary(request.getResumeSummary());
-        return studentApplicationRepository.save(application);
+        StudentApplication saved = studentApplicationRepository.save(application);
+        milestoneService.refreshTeacherCommentSnapshot(saved);
+        return saved;
     }
 
     public List<StudentApplication> listMyApplications() {

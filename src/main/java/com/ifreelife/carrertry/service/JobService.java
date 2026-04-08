@@ -145,6 +145,10 @@ public class JobService {
         return jobPostingRepository.findByStatus(JobStatus.APPROVED);
     }
 
+    public Page<JobPosting> listApprovedJobs(int page, int size) {
+        return jobPostingRepository.findByStatus(JobStatus.APPROVED, PageRequest.of(page, size));
+    }
+
     public List<JobPosting> listAllJobs() {
         return jobPostingRepository.findAll();
     }

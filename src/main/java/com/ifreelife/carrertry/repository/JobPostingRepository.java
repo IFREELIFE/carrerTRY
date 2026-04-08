@@ -11,6 +11,8 @@ import java.util.List;
 public interface JobPostingRepository extends JpaRepository<JobPosting, Long> {
     List<JobPosting> findByStatus(JobStatus status);
 
+    Page<JobPosting> findByStatus(JobStatus status, Pageable pageable);
+
     Page<JobPosting> findByEnterpriseNameContainingIgnoreCase(String enterpriseName, Pageable pageable);
 
     boolean existsByEnterpriseNameAndTitleAndDepartmentAndLocation(

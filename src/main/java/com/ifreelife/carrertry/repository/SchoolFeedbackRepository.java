@@ -4,7 +4,10 @@ import com.ifreelife.carrertry.entity.SchoolFeedback;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface SchoolFeedbackRepository extends JpaRepository<SchoolFeedback, Long> {
     List<SchoolFeedback> findBySchoolNameAndStudentNameOrderByCreatedAtDesc(String schoolName, String studentName);
+
+    Optional<SchoolFeedback> findTopByStudentNameOrderByCreatedAtDesc(String studentName);
 }
