@@ -116,8 +116,8 @@ public class JobService {
                 request.setTitle(cells.get(0).trim());
                 request.setDepartment(cells.get(1).trim());
                 request.setLocation(cells.get(2).trim());
-                request.setSalaryMin(parseDecimal(cells.get(3).trim(), lineNo, "salaryMin"));
-                request.setSalaryMax(parseDecimal(cells.get(4).trim(), lineNo, "salaryMax"));
+                request.setSalaryMin(parseDecimal(cells.get(3).trim(), lineNo, "minimum salary"));
+                request.setSalaryMax(parseDecimal(cells.get(4).trim(), lineNo, "maximum salary"));
                 request.setExperienceRequirement(cells.get(5).trim());
                 request.setEducationRequirement(cells.get(6).trim());
                 request.setSkills(cells.get(7).trim());
@@ -292,18 +292,18 @@ public class JobService {
 
     private BigDecimal parseDecimal(String value, int lineNo, String fieldName) {
         if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException(fieldName + " is required at line " + lineNo);
+            throw new IllegalArgumentException("Field '" + fieldName + "' is required at line " + lineNo + ".");
         }
         if (value.length() > MAX_DECIMAL_INPUT_LENGTH) {
             throw new IllegalArgumentException(
-                fieldName + " exceeds maximum length of " + MAX_DECIMAL_INPUT_LENGTH + " characters at line " + lineNo
+                "Field '" + fieldName + "' exceeds maximum length of " + MAX_DECIMAL_INPUT_LENGTH + " characters at line " + lineNo + "."
             );
         }
         try {
             return new BigDecimal(value);
         } catch (NumberFormatException ex) {
             throw new IllegalArgumentException(
-                "Invalid " + fieldName + " value '" + value + "' at line " + lineNo + ": must be a valid decimal number"
+                "Invalid value '" + value + "' for field '" + fieldName + "' at line " + lineNo + ": must be a valid decimal number."
             );
         }
     }
