@@ -363,18 +363,16 @@ public class MilestoneService {
         if (!"FAILED".equalsIgnoreCase(task.getTaskStatus())) {
             throw new IllegalArgumentException("Only FAILED task can retry");
         }
-        task.setTaskStatus("QUEUED");
         task.setRetryCount(Optional.ofNullable(task.getRetryCount()).orElse(0) + 1);
         task.setErrorMessage(null);
         task.setUpdatedAt(LocalDateTime.now());
-        AiTask queued = aiTaskRepository.save(task);
-        if (!aiTaskDispatchService.dispatchRetry(queued)) {
-            queued.setTaskStatus("FAILED");
-            queued.setErrorMessage("RabbitMQ dispatch failed, please retry later");
-            queued.setUpdatedAt(LocalDateTime.now());
-            return aiTaskRepository.save(queued);
+        if (aiTaskDispatchService.dispatchRetry(task)) {
+            task.setTaskStatus("QUEUED");
+        } else {
+            task.setTaskStatus("FAILED");
+            task.setErrorMessage("RabbitMQ dispatch failed, please retry later");
         }
-        return queued;
+        return aiTaskRepository.save(task);
     }
 
     @Transactional

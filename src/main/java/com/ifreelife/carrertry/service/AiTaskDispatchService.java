@@ -28,7 +28,7 @@ public class AiTaskDispatchService {
         payload.put("taskName", task.getTaskName());
         payload.put("taskStatus", task.getTaskStatus());
         payload.put("retryCount", task.getRetryCount());
-        payload.put("updatedAt", LocalDateTime.now().toString());
+        payload.put("updatedAt", task.getUpdatedAt() == null ? LocalDateTime.now().toString() : task.getUpdatedAt().toString());
         try {
             rabbitTemplate.convertAndSend(queueName, payload);
             return true;
