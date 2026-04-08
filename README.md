@@ -17,6 +17,7 @@
 - `/school/...`
 
 ## 当前已实现能力
+0. 账号基础：学生/学校/企业注册，数据库用户模型与角色鉴权
 1. 企业端：岗位创建、岗位批量导入、岗位详情
 2. 管理端：岗位审核通过/驳回、岗位列表、AI任务监控列表
 3. 学生端：岗位浏览、岗位详情、岗位投递、岗位匹配
@@ -35,6 +36,11 @@
 - `student/${RBAC_STUDENT_PASSWORD:Student@1234}`
 - `school/${RBAC_SCHOOL_PASSWORD:School@1234}`
 
+注册接口（免登录）：
+- `POST /auth/register/student`（邮箱+学校绑定）
+- `POST /auth/register/school`（仅 `.edu` / `.edu.cn` 邮箱）
+- `POST /auth/register/enterprise`（企业三要素校验接口已预留）
+
 ## 运行
 ```bash
 mvn spring-boot:run
@@ -51,6 +57,7 @@ npm run dev
 - `/admin/...`
 - `/student/...`
 - `/school/...`
+- `/auth/register`
 
 ## 配置
 可通过环境变量覆盖：
