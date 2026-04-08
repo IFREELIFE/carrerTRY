@@ -283,7 +283,7 @@ public class JobService {
     private String loadCurrentEnterpriseName() {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         UserAccount account = userAccountRepository.findByUsername(username)
-            .orElseThrow(() -> new IllegalArgumentException("Current user not found"));
+            .orElseThrow(() -> new IllegalArgumentException("Enterprise account not found for current user"));
         if (account.getEnterpriseName() == null || account.getEnterpriseName().isBlank()) {
             throw new IllegalArgumentException("Current account has no enterprise binding");
         }
@@ -303,7 +303,7 @@ public class JobService {
             return new BigDecimal(value);
         } catch (NumberFormatException ex) {
             throw new IllegalArgumentException(
-                "Invalid " + fieldName + " value '" + value + "' at line " + lineNo + ": " + ex.getMessage()
+                "Invalid " + fieldName + " value '" + value + "' at line " + lineNo + ": must be a valid decimal number"
             );
         }
     }

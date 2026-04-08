@@ -41,7 +41,7 @@ public class SchoolService {
     private UserAccount loadCurrentSchoolAccount() {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         UserAccount account = userAccountRepository.findByUsername(username)
-            .orElseThrow(() -> new IllegalArgumentException("Current user not found"));
+            .orElseThrow(() -> new IllegalArgumentException("School account not found for current user"));
         if (account.getSchoolName() == null || account.getSchoolName().isBlank()) {
             throw new IllegalArgumentException("Current account has no school binding");
         }

@@ -56,6 +56,6 @@ public class StudentService {
     private UserAccount loadCurrentStudentAccount() {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         return userAccountRepository.findByUsername(username)
-            .orElseThrow(() -> new IllegalArgumentException("Current user not found"));
+            .orElseThrow(() -> new IllegalArgumentException("Student account not found for current user"));
     }
 }
