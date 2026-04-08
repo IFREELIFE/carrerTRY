@@ -10,6 +10,11 @@ import com.ifreelife.carrertry.repository.JobPostingRepository;
 import com.ifreelife.carrertry.repository.UserAccountRepository;
 import com.ifreelife.carrertry.repository.neo4j.SkillNodeRepository;
 import lombok.RequiredArgsConstructor;
+import org.apache.poi.ss.usermodel.DataFormatter;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -31,7 +36,7 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class JobService {
     private static final int MAX_PAGE_SIZE = 100;
-    private static final int EXPECTED_EXCEL_COLUMN_COUNT = 9;
+    private static final int EXPECTED_IMPORT_COLUMN_COUNT = 9;
     private static final int MAX_DECIMAL_INPUT_LENGTH = 32;
     private static final String[] EXPECTED_HEADER_COLUMNS = {
         "title",
@@ -94,42 +99,11 @@ public class JobService {
         if (enterpriseName == null || enterpriseName.isBlank()) {
             throw new IllegalArgumentException("enterpriseName is required");
         }
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream()))) {
-            List<JobCreateRequest> requests = new ArrayList<>();
-            String line;
-            int lineNo = 0;
-            while ((line = reader.readLine()) != null) {
-                lineNo++;
-                if (line.isBlank()) {
-                    continue;
-                }
-                if (lineNo == 1) {
-                    if (!isExpectedHeader(line)) {
-                        throw new IllegalArgumentException("Missing or invalid header row in excel file");
-                    }
-                    continue;
-                }
-                List<String> cells = parseCsvLine(line);
-                if (cells.size() < EXPECTED_EXCEL_COLUMN_COUNT) {
-                    throw new IllegalArgumentException("Invalid excel row at line " + lineNo);
-                }
-                JobCreateRequest request = new JobCreateRequest();
-                request.setTitle(cells.get(0).trim());
-                request.setDepartment(cells.get(1).trim());
-                request.setLocation(cells.get(2).trim());
-                request.setSalaryMin(parseDecimal(cells.get(3).trim(), lineNo, "minimum salary"));
-                request.setSalaryMax(parseDecimal(cells.get(4).trim(), lineNo, "maximum salary"));
-                request.setExperienceRequirement(cells.get(5).trim());
-                request.setEducationRequirement(cells.get(6).trim());
-                request.setSkills(cells.get(7).trim());
-                request.setDescription(cells.get(8).trim());
-                request.setEnterpriseName(enterpriseName.trim());
-                requests.add(request);
-            }
-            return importBatch(requests);
-        } catch (IOException ex) {
-            throw new IllegalArgumentException("Failed to parse excel file");
+        String fileName = file.getOriginalFilename() == null ? "" : file.getOriginalFilename().toLowerCase();
+        if (fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) {
+            return importBatch(parseExcelRequests(file, enterpriseName));
         }
+        return importBatch(parseCsvRequests(file, enterpriseName));
     }
 
     public Page<JobPosting> listEnterpriseJobs(String enterpriseName, int page, int size) {
@@ -236,17 +210,92 @@ public class JobService {
         }
     }
 
-    private boolean isExpectedHeader(String line) {
-        List<String> cells = parseCsvLine(line);
-        if (cells.size() < EXPECTED_EXCEL_COLUMN_COUNT) {
+    private boolean isExpectedHeader(List<String> cells) {
+        if (cells.size() < EXPECTED_IMPORT_COLUMN_COUNT) {
             return false;
         }
-        for (int i = 0; i < EXPECTED_EXCEL_COLUMN_COUNT; i++) {
+        for (int i = 0; i < EXPECTED_IMPORT_COLUMN_COUNT; i++) {
             if (!cells.get(i).trim().toLowerCase().equals(EXPECTED_HEADER_COLUMNS[i])) {
                 return false;
             }
         }
         return true;
+    }
+
+    private List<JobCreateRequest> parseCsvRequests(MultipartFile file, String enterpriseName) {
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream()))) {
+            List<JobCreateRequest> requests = new ArrayList<>();
+            String line;
+            int lineNo = 0;
+            while ((line = reader.readLine()) != null) {
+                lineNo++;
+                if (line.isBlank()) {
+                    continue;
+                }
+                List<String> cells = parseCsvLine(line);
+                if (lineNo == 1) {
+                    if (!isExpectedHeader(cells)) {
+                        throw new IllegalArgumentException("Missing or invalid header row in import file");
+                    }
+                    continue;
+                }
+                if (cells.size() < EXPECTED_IMPORT_COLUMN_COUNT) {
+                    throw new IllegalArgumentException("Invalid row at line " + lineNo);
+                }
+                requests.add(toJobCreateRequest(cells, lineNo, enterpriseName));
+            }
+            return requests;
+        } catch (IOException ex) {
+            throw new IllegalArgumentException("Failed to parse import file");
+        }
+    }
+
+    private List<JobCreateRequest> parseExcelRequests(MultipartFile file, String enterpriseName) {
+        DataFormatter formatter = new DataFormatter();
+        try (Workbook workbook = WorkbookFactory.create(file.getInputStream())) {
+            Sheet sheet = workbook.getSheetAt(0);
+            List<JobCreateRequest> requests = new ArrayList<>();
+            boolean headerChecked = false;
+            for (Row row : sheet) {
+                int rowNo = row.getRowNum() + 1;
+                List<String> cells = new ArrayList<>();
+                for (int i = 0; i < EXPECTED_IMPORT_COLUMN_COUNT; i++) {
+                    cells.add(formatter.formatCellValue(row.getCell(i)).trim());
+                }
+                if (cells.stream().allMatch(String::isBlank)) {
+                    continue;
+                }
+                if (!headerChecked) {
+                    if (!isExpectedHeader(cells)) {
+                        throw new IllegalArgumentException("Missing or invalid header row in excel file");
+                    }
+                    headerChecked = true;
+                    continue;
+                }
+                requests.add(toJobCreateRequest(cells, rowNo, enterpriseName));
+            }
+            if (!headerChecked) {
+                throw new IllegalArgumentException("Missing or invalid header row in excel file");
+            }
+            return requests;
+        } catch (IOException ex) {
+            throw new IllegalArgumentException("Failed to parse excel file");
+        }
+    }
+
+    private JobCreateRequest toJobCreateRequest(List<String> cells, int lineNo, String enterpriseName) {
+        JobCreateRequest request = new JobCreateRequest();
+        request.setTitle(cells.get(0).trim());
+        request.setDepartment(cells.get(1).trim());
+        request.setLocation(cells.get(2).trim());
+        request.setSalaryMin(parseDecimal(cells.get(3).trim(), lineNo, "minimum salary"));
+        request.setSalaryMax(parseDecimal(cells.get(4).trim(), lineNo, "maximum salary"));
+        request.setExperienceRequirement(cells.get(5).trim());
+        request.setEducationRequirement(cells.get(6).trim());
+        request.setSkills(cells.get(7).trim());
+        request.setDescription(cells.get(8).trim());
+        request.setEnterpriseName(enterpriseName.trim());
+        return request;
     }
 
     private List<String> parseCsvLine(String line) {
