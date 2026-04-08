@@ -18,8 +18,8 @@ public class RegisterEnterpriseRequest {
     @NotBlank
     private String displayName;
 
-    @Email
     @NotBlank
+    @Email
     private String email;
 
     @NotBlank

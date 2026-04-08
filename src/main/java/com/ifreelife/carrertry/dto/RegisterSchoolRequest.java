@@ -21,7 +21,7 @@ public class RegisterSchoolRequest {
     @NotBlank
     private String schoolName;
 
-    @Email
     @NotBlank
+    @Email
     private String email;
 }
