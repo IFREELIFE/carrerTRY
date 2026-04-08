@@ -482,7 +482,8 @@ public class MilestoneService {
     /**
      * Records the current student's daily activity facts used by the "active today = prioritized today" rule.
      * activeSeconds is accumulated and capped at 86400 seconds for a single day.
-     * Returns the latest daily summary including check-in state, streak and priority eligibility.
+     * Returns a daily summary map with keys: date, activeSeconds, viewedJobsCount, resumeRefreshed,
+     * checkedIn, consecutiveCheckInDays, priorityToday and ruleAnnouncement.
      */
     @Transactional
     public Map<String, Object> recordDailyActivity(Integer activeSeconds, boolean viewedJobs, boolean refreshedResume) {
@@ -493,7 +494,8 @@ public class MilestoneService {
         LocalDate today = LocalDate.now();
         StudentDailyActivity activity = loadOrCreateDailyActivity(student.getUsername(), today);
         int normalizedSeconds = activeSeconds == null ? 0 : Math.max(0, activeSeconds);
-        activity.setActiveSeconds(Math.min(DAILY_ACTIVE_SECONDS_CAP, activity.getActiveSeconds() + normalizedSeconds));
+        long nextSeconds = (long) activity.getActiveSeconds() + normalizedSeconds;
+        activity.setActiveSeconds((int) Math.min(DAILY_ACTIVE_SECONDS_CAP, Math.max(0L, nextSeconds)));
         if (viewedJobs) {
             activity.setViewedJobsCount(activity.getViewedJobsCount() + 1);
         }
@@ -508,7 +510,8 @@ public class MilestoneService {
     /**
      * Performs today's check-in for the current student when priority prerequisites are met.
      * Prerequisites: at least 30 seconds active OR browsed jobs OR refreshed resume.
-     * Returns the latest daily summary payload.
+     * Returns a daily summary map with keys: date, activeSeconds, viewedJobsCount, resumeRefreshed,
+     * checkedIn, consecutiveCheckInDays, priorityToday and ruleAnnouncement.
      */
     @Transactional
     public Map<String, Object> checkInToday() {
@@ -545,6 +548,11 @@ public class MilestoneService {
         return buildDailySummary(student.getUsername(), activity);
     }
 
+    /**
+     * Returns student home overview map with keys:
+     * dailyCheckIn, resumeUploaded, resumeCount, mbtiCompleted, matchedJobCount, generatedReports,
+     * consecutiveCheckInDays.
+     */
     public Map<String, Object> studentHomeSummary() {
         UserAccount student = currentUser();
         if (student.getRole() != UserRole.STUDENT) {
@@ -678,12 +686,16 @@ public class MilestoneService {
     }
 
     private int calculateCurrentStreak(String studentUsername) {
+        return calculateCurrentStreak(studentUsername, LocalDate.now());
+    }
+
+    private int calculateCurrentStreak(String studentUsername, LocalDate baseDate) {
         List<StudentDailyActivity> records = studentDailyActivityRepository
             .findByStudentUsernameAndCheckedInTrueOrderByActivityDateDesc(studentUsername);
         if (records.isEmpty()) {
             return 0;
         }
-        LocalDate expected = LocalDate.now();
+        LocalDate expected = baseDate;
         int streak = 0;
         for (StudentDailyActivity record : records) {
             if (!expected.equals(record.getActivityDate())) {
@@ -715,8 +727,8 @@ public class MilestoneService {
                 int skill = scoreByContains(job.getSkills(), profile.getTechStack());
                 int exp = scoreByContains(job.getExperienceRequirement(), profile.getCapabilityInfo());
                 int edu = scoreByContains(job.getEducationRequirement(), profile.getCapabilityInfo());
-                int total = (skill + exp + edu) / 3;
-                return total >= 60;
+                double total = ((double) skill + exp + edu) / 3.0d;
+                return total >= 60.0d;
             })
             .count();
     }
