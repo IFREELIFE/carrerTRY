@@ -2,166 +2,310 @@ import { useState } from 'react'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8080'
 
-export default function StudentPage() {
-  const [jobs, setJobs] = useState([])
-  const [matches, setMatches] = useState([])
-  const [applications, setApplications] = useState([])
-  const [selectedJob, setSelectedJob] = useState(null)
-  const [jobId, setJobId] = useState('')
-  const [keywords, setKeywords] = useState('')
-  const [resumeSummary, setResumeSummary] = useState('')
-  const [message, setMessage] = useState('')
+async function requestJson(url, options) {
+  const response = await fetch(url, options)
+  const data = await response.json()
+  if (!response.ok) throw new Error(data.message ?? '请求失败')
+  return data
+}
 
-  async function loadJobs() {
-    setMessage('加载岗位中...')
+export default function StudentPage() {
+  const [message, setMessage] = useState('')
+  const [homePage, setHomePage] = useState(0)
+  const [homeJobs, setHomeJobs] = useState([])
+  const [jobId, setJobId] = useState('')
+  const [resumeSummary, setResumeSummary] = useState('')
+  const [jobDetail, setJobDetail] = useState(null)
+  const [applications, setApplications] = useState([])
+  const [onboarding, setOnboarding] = useState({ techStack: '', capabilityInfo: '', mbtiType: '', commitmentAgreed: false })
+  const [profile, setProfile] = useState(null)
+  const [center, setCenter] = useState({ displayName: '', phone: '', major: '' })
+  const [resume, setResume] = useState({ fileName: 'resume.txt', content: '' })
+  const [resumes, setResumes] = useState([])
+  const [portraitMatches, setPortraitMatches] = useState([])
+  const [plan, setPlan] = useState({ targetCity: '', targetCareer: '', progressPercent: 0, dynamicAdjustment: '' })
+  const [myPlan, setMyPlan] = useState(null)
+  const [notices, setNotices] = useState([])
+  const [achievements, setAchievements] = useState([])
+  const [correction, setCorrection] = useState({ wrongPoint: '', correctionAction: '', closedLoopStatus: 'OPEN' })
+  const [corrections, setCorrections] = useState([])
+
+  async function loadHome(page = homePage) {
     try {
-      const response = await fetch(`${API_BASE}/student/jobs`)
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.message ?? '加载失败')
-      setJobs(Array.isArray(data) ? data : [])
-      setMessage('岗位加载成功')
+      const data = await requestJson(`${API_BASE}/student/home?page=${page}`)
+      setHomeJobs(data.content ?? [])
+      setHomePage(data.number ?? page)
+      setMessage('首页岗位加载成功')
     } catch (err) {
-      setMessage(`加载岗位失败：${err.message}`)
+      setMessage(`首页岗位加载失败：${err.message}`)
+    }
+  }
+
+  async function submitOnboarding(e) {
+    e.preventDefault()
+    try {
+      await requestJson(`${API_BASE}/student/onboarding`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(onboarding)
+      })
+      setMessage('首次链路完成')
+    } catch (err) {
+      setMessage(`首次链路失败：${err.message}`)
+    }
+  }
+
+  async function loadProfile() {
+    try {
+      const data = await requestJson(`${API_BASE}/student/profile`)
+      setProfile(data)
+      setMessage('画像加载成功')
+    } catch (err) {
+      setMessage(`画像加载失败：${err.message}`)
+    }
+  }
+
+  async function updateCenter() {
+    try {
+      const data = await requestJson(`${API_BASE}/student/center`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(center)
+      })
+      setMessage(`个人中心更新成功：${data.user.displayName}`)
+    } catch (err) {
+      setMessage(`个人中心更新失败：${err.message}`)
+    }
+  }
+
+  async function uploadResume() {
+    try {
+      await requestJson(`${API_BASE}/student/resumes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(resume)
+      })
+      setMessage('简历上传成功')
+      await loadResumes()
+    } catch (err) {
+      setMessage(`简历上传失败：${err.message}`)
+    }
+  }
+
+  async function loadResumes() {
+    try {
+      const data = await requestJson(`${API_BASE}/student/resumes`)
+      setResumes(Array.isArray(data) ? data : [])
+      setMessage('简历列表加载成功')
+    } catch (err) {
+      setMessage(`简历列表加载失败：${err.message}`)
     }
   }
 
   async function loadJobDetail() {
-    if (!jobId) {
-      setMessage('请输入岗位ID')
-      return
-    }
-    setMessage('加载岗位详情中...')
+    if (!jobId) return
     try {
-      const response = await fetch(`${API_BASE}/student/jobs/${jobId}`)
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.message ?? '加载详情失败')
-      setSelectedJob(data)
+      const data = await requestJson(`${API_BASE}/student/jobs/${jobId}`)
+      setJobDetail(data)
       setMessage('岗位详情加载成功')
     } catch (err) {
-      setSelectedJob(null)
-      setMessage(`加载岗位详情失败：${err.message}`)
-    }
-  }
-
-  async function loadMatches() {
-    setMessage('匹配中...')
-    try {
-      const query = keywords.trim() ? `?keywords=${encodeURIComponent(keywords.trim())}` : ''
-      const response = await fetch(`${API_BASE}/student/matches${query}`)
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.message ?? '匹配失败')
-      setMatches(Array.isArray(data) ? data : [])
-      setMessage('匹配完成')
-    } catch (err) {
-      setMessage(`匹配失败：${err.message}`)
+      setMessage(`岗位详情加载失败：${err.message}`)
     }
   }
 
   async function applyJob(e) {
     e.preventDefault()
-    if (!jobId || !resumeSummary.trim()) {
-      setMessage('请填写岗位ID与简历摘要')
-      return
-    }
-    setMessage('投递中...')
     try {
-      const response = await fetch(`${API_BASE}/student/applications`, {
+      await requestJson(`${API_BASE}/student/applications`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jobId: Number(jobId),
-          resumeSummary: resumeSummary.trim()
-        })
+        body: JSON.stringify({ jobId: Number(jobId), resumeSummary })
       })
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.message ?? '投递失败')
-      setMessage(`投递成功，申请ID：${data.id}`)
-      await loadMyApplications()
+      setMessage('投递成功')
+      await loadApplications()
     } catch (err) {
       setMessage(`投递失败：${err.message}`)
     }
   }
 
-  async function loadMyApplications() {
-    setMessage('加载投递记录中...')
+  async function loadApplications() {
     try {
-      const response = await fetch(`${API_BASE}/student/applications`)
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.message ?? '加载投递失败')
+      const data = await requestJson(`${API_BASE}/student/applications`)
       setApplications(Array.isArray(data) ? data : [])
       setMessage('投递记录加载成功')
     } catch (err) {
-      setMessage(`加载投递失败：${err.message}`)
+      setMessage(`投递记录加载失败：${err.message}`)
+    }
+  }
+
+  async function loadPortraitMatches() {
+    try {
+      const data = await requestJson(`${API_BASE}/student/portrait/matches`)
+      setPortraitMatches(Array.isArray(data) ? data : [])
+      setMessage('画像匹配加载成功')
+    } catch (err) {
+      setMessage(`画像匹配加载失败：${err.message}`)
+    }
+  }
+
+  async function savePlan() {
+    try {
+      const data = await requestJson(`${API_BASE}/student/plans`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(plan)
+      })
+      setMyPlan(data)
+      setMessage('规划保存成功')
+    } catch (err) {
+      setMessage(`规划保存失败：${err.message}`)
+    }
+  }
+
+  async function loadPlan() {
+    try {
+      const data = await requestJson(`${API_BASE}/student/plans`)
+      setMyPlan(data)
+      setMessage('规划加载成功')
+    } catch (err) {
+      setMessage(`规划加载失败：${err.message}`)
+    }
+  }
+
+  async function loadNotices() {
+    try {
+      const data = await requestJson(`${API_BASE}/student/notices`)
+      setNotices(Array.isArray(data) ? data : [])
+      setMessage('通知加载成功')
+    } catch (err) {
+      setMessage(`通知加载失败：${err.message}`)
+    }
+  }
+
+  async function loadAchievements() {
+    try {
+      const data = await requestJson(`${API_BASE}/student/achievements`)
+      setAchievements(Array.isArray(data) ? data : [])
+      setMessage('成就加载成功')
+    } catch (err) {
+      setMessage(`成就加载失败：${err.message}`)
+    }
+  }
+
+  async function saveCorrection() {
+    try {
+      await requestJson(`${API_BASE}/student/corrections`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(correction)
+      })
+      setMessage('纠偏记录成功')
+      await loadCorrections()
+    } catch (err) {
+      setMessage(`纠偏记录失败：${err.message}`)
+    }
+  }
+
+  async function loadCorrections() {
+    try {
+      const data = await requestJson(`${API_BASE}/student/corrections`)
+      setCorrections(Array.isArray(data) ? data : [])
+      setMessage('纠偏列表加载成功')
+    } catch (err) {
+      setMessage(`纠偏列表加载失败：${err.message}`)
     }
   }
 
   return (
     <section>
       <h2>/student/...</h2>
-      <p>岗位浏览、详情、投递、匹配与我的投递记录。</p>
-      <div style={{ marginBottom: 12 }}>
-        <button type="button" onClick={loadJobs}>加载岗位列表</button>
-        <button type="button" onClick={loadMatches} style={{ marginLeft: 8 }}>关键词匹配</button>
-        <button type="button" onClick={loadMyApplications} style={{ marginLeft: 8 }}>我的投递</button>
-      </div>
+      <p>首页、首次必填、岗位投递、个人中心、简历、画像、规划、通知、成就、纠偏。</p>
 
-      <div style={{ marginBottom: 12 }}>
-        <input
-          placeholder="关键词（用于匹配）"
-          value={keywords}
-          onChange={(e) => setKeywords(e.target.value)}
-          style={{ width: '100%', padding: 6 }}
-        />
-      </div>
+      <section style={{ border: '1px solid #ddd', padding: 12, marginBottom: 12 }}>
+        <h3>首页岗位（15条分页）</h3>
+        <button onClick={() => loadHome(Math.max(homePage - 1, 0))}>上一页</button>
+        <button onClick={() => loadHome(homePage + 1)} style={{ marginLeft: 8 }}>下一页</button>
+        <button onClick={() => loadHome(homePage)} style={{ marginLeft: 8 }}>刷新</button>
+        <ul>{homeJobs.map((j) => <li key={j.id}>{j.id} | {j.title} | {j.location}</li>)}</ul>
+      </section>
 
-      <div style={{ marginBottom: 12 }}>
-        <input
-          placeholder="岗位ID（详情/投递）"
-          value={jobId}
-          onChange={(e) => setJobId(e.target.value)}
-          style={{ width: '100%', padding: 6 }}
-        />
-        <button type="button" onClick={loadJobDetail} style={{ marginTop: 8 }}>查看岗位详情</button>
-      </div>
-
-      <form onSubmit={applyJob} style={{ marginBottom: 12 }}>
-        <textarea
-          placeholder="简历摘要"
-          value={resumeSummary}
-          onChange={(e) => setResumeSummary(e.target.value)}
-          style={{ width: '100%', minHeight: 80, padding: 6 }}
-          required
-        />
-        <button type="submit" style={{ marginTop: 8 }}>投递岗位</button>
+      <form onSubmit={submitOnboarding} style={{ border: '1px solid #ddd', padding: 12, marginBottom: 12 }}>
+        <h3>首次必填链路</h3>
+        <input placeholder="技术栈" value={onboarding.techStack} onChange={(e) => setOnboarding((p) => ({ ...p, techStack: e.target.value }))} style={{ width: '100%', marginBottom: 8 }} />
+        <textarea placeholder="能力信息" value={onboarding.capabilityInfo} onChange={(e) => setOnboarding((p) => ({ ...p, capabilityInfo: e.target.value }))} style={{ width: '100%', marginBottom: 8 }} />
+        <input placeholder="MBTI" value={onboarding.mbtiType} onChange={(e) => setOnboarding((p) => ({ ...p, mbtiType: e.target.value }))} style={{ width: '100%', marginBottom: 8 }} />
+        <label><input type="checkbox" checked={onboarding.commitmentAgreed} onChange={(e) => setOnboarding((p) => ({ ...p, commitmentAgreed: e.target.checked }))} /> 已勾选保证书</label>
+        <div><button type="submit">提交首次链路</button></div>
       </form>
 
-      <h3>岗位列表</h3>
-      <ul>
-        {jobs.map((job) => (
-          <li key={job.id}>{job.id} | {job.title} | {job.skills}</li>
-        ))}
-      </ul>
+      <section style={{ border: '1px solid #ddd', padding: 12, marginBottom: 12 }}>
+        <h3>岗位详情与投递</h3>
+        <input placeholder="岗位ID" value={jobId} onChange={(e) => setJobId(e.target.value)} style={{ width: '100%', marginBottom: 8 }} />
+        <button onClick={loadJobDetail}>查看详情</button>
+        <pre>{jobDetail ? JSON.stringify(jobDetail, null, 2) : '暂无详情'}</pre>
+        <form onSubmit={applyJob}>
+          <textarea placeholder="简历摘要" value={resumeSummary} onChange={(e) => setResumeSummary(e.target.value)} style={{ width: '100%', marginBottom: 8 }} />
+          <button type="submit">投递岗位</button>
+          <button type="button" onClick={loadApplications} style={{ marginLeft: 8 }}>我的投递</button>
+        </form>
+        <ul>{applications.map((a) => <li key={a.id}>#{a.id} job:{a.jobId} status:{a.status}</li>)}</ul>
+      </section>
 
-      <h3>匹配结果</h3>
-      <ul>
-        {matches.map((job) => (
-          <li key={job.id}>{job.id} | {job.title} | {job.skills}</li>
-        ))}
-      </ul>
+      <section style={{ border: '1px solid #ddd', padding: 12, marginBottom: 12 }}>
+        <h3>个人中心可编辑</h3>
+        <input placeholder="姓名" value={center.displayName} onChange={(e) => setCenter((p) => ({ ...p, displayName: e.target.value }))} style={{ width: '100%', marginBottom: 8 }} />
+        <input placeholder="电话" value={center.phone} onChange={(e) => setCenter((p) => ({ ...p, phone: e.target.value }))} style={{ width: '100%', marginBottom: 8 }} />
+        <input placeholder="专业" value={center.major} onChange={(e) => setCenter((p) => ({ ...p, major: e.target.value }))} style={{ width: '100%', marginBottom: 8 }} />
+        <button onClick={updateCenter}>保存个人中心</button>
+      </section>
 
-      <h3>岗位详情</h3>
-      {selectedJob ? (
-        <pre style={{ whiteSpace: 'pre-wrap' }}>{JSON.stringify(selectedJob, null, 2)}</pre>
-      ) : (
-        <p>暂无详情</p>
-      )}
+      <section style={{ border: '1px solid #ddd', padding: 12, marginBottom: 12 }}>
+        <h3>简历管理（上传/建议/美化）</h3>
+        <input placeholder="文件名" value={resume.fileName} onChange={(e) => setResume((p) => ({ ...p, fileName: e.target.value }))} style={{ width: '100%', marginBottom: 8 }} />
+        <textarea placeholder="简历正文" value={resume.content} onChange={(e) => setResume((p) => ({ ...p, content: e.target.value }))} style={{ width: '100%', marginBottom: 8 }} />
+        <button onClick={uploadResume}>上传并生成建议</button>
+        <button onClick={loadResumes} style={{ marginLeft: 8 }}>查看简历</button>
+        <ul>{resumes.map((r) => <li key={r.id}>{r.fileName} | 建议:{r.aiSuggestion} | 美化:{r.beautifiedContent}</li>)}</ul>
+      </section>
 
-      <h3>我的投递记录</h3>
-      <ul>
-        {applications.map((a) => (
-          <li key={a.id}>申请ID {a.id} | 岗位ID {a.jobId} | 时间 {a.appliedAt}</li>
-        ))}
-      </ul>
+      <section style={{ border: '1px solid #ddd', padding: 12, marginBottom: 12 }}>
+        <h3>12维画像与四维匹配</h3>
+        <button onClick={loadProfile}>加载画像</button>
+        <button onClick={loadPortraitMatches} style={{ marginLeft: 8 }}>加载匹配分</button>
+        <pre>{profile ? JSON.stringify(profile, null, 2) : '暂无画像'}</pre>
+        <ul>{portraitMatches.map((m) => <li key={m.jobId}>{m.jobTitle} 总分:{m.totalScore}</li>)}</ul>
+      </section>
+
+      <section style={{ border: '1px solid #ddd', padding: 12, marginBottom: 12 }}>
+        <h3>目标设定与个性规划</h3>
+        <input placeholder="目标城市" value={plan.targetCity} onChange={(e) => setPlan((p) => ({ ...p, targetCity: e.target.value }))} style={{ width: '100%', marginBottom: 8 }} />
+        <input placeholder="目标职业" value={plan.targetCareer} onChange={(e) => setPlan((p) => ({ ...p, targetCareer: e.target.value }))} style={{ width: '100%', marginBottom: 8 }} />
+        <input placeholder="进度(0-100)" type="number" value={plan.progressPercent} onChange={(e) => setPlan((p) => ({ ...p, progressPercent: Number(e.target.value) }))} style={{ width: '100%', marginBottom: 8 }} />
+        <textarea placeholder="动态调整" value={plan.dynamicAdjustment} onChange={(e) => setPlan((p) => ({ ...p, dynamicAdjustment: e.target.value }))} style={{ width: '100%', marginBottom: 8 }} />
+        <button onClick={savePlan}>保存规划</button>
+        <button onClick={loadPlan} style={{ marginLeft: 8 }}>加载规划</button>
+        <a href={`${API_BASE}/student/plans/pdf`} target="_blank" rel="noreferrer" style={{ marginLeft: 8 }}>下载PDF</a>
+        <pre>{myPlan ? JSON.stringify(myPlan, null, 2) : '暂无规划'}</pre>
+      </section>
+
+      <section style={{ border: '1px solid #ddd', padding: 12, marginBottom: 12 }}>
+        <h3>通知中心与成就系统</h3>
+        <button onClick={loadNotices}>加载通知</button>
+        <button onClick={loadAchievements} style={{ marginLeft: 8 }}>加载成就</button>
+        <ul>{notices.map((n) => <li key={n.id}>{n.noticeType} | {n.title}</li>)}</ul>
+        <ul>{achievements.map((a) => <li key={a.id}>{a.achievementCode} | {a.achievedAt}</li>)}</ul>
+      </section>
+
+      <section style={{ border: '1px solid #ddd', padding: 12 }}>
+        <h3>错题本纠偏闭环</h3>
+        <textarea placeholder="问题" value={correction.wrongPoint} onChange={(e) => setCorrection((p) => ({ ...p, wrongPoint: e.target.value }))} style={{ width: '100%', marginBottom: 8 }} />
+        <textarea placeholder="纠偏动作" value={correction.correctionAction} onChange={(e) => setCorrection((p) => ({ ...p, correctionAction: e.target.value }))} style={{ width: '100%', marginBottom: 8 }} />
+        <input placeholder="状态" value={correction.closedLoopStatus} onChange={(e) => setCorrection((p) => ({ ...p, closedLoopStatus: e.target.value }))} style={{ width: '100%', marginBottom: 8 }} />
+        <button onClick={saveCorrection}>提交纠偏</button>
+        <button onClick={loadCorrections} style={{ marginLeft: 8 }}>查看纠偏</button>
+        <ul>{corrections.map((c) => <li key={c.id}>{c.closedLoopStatus} | {c.wrongPoint}</li>)}</ul>
+      </section>
+
       <p>{message}</p>
     </section>
   )
