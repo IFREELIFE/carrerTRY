@@ -27,7 +27,7 @@
 8. 企业投递与面试流程：投递管理、面试通知、面试反馈、结合老师评语的智能筛选
 9. 目标设定/个性规划/报告：目标城市职业、70%阈值判断、培养计划PDF下载、动态进度调整
 10. 通告中心与成就系统：系统公告、面试通知聚合、30个成就定义与触发记录
-11. AI与异步能力增强：任务排队状态、RAG记录、质量指标、错题纠偏闭环、置信度发布拦截
+11. AI与异步能力增强：RabbitMQ任务分发（失败重试入队）、任务排队状态、RAG记录、质量指标、错题纠偏闭环、置信度发布拦截
 12. 联调验收与上线准备：验收清单接口与分步骤状态管理
 
 ## RBAC（若依风格）
@@ -113,3 +113,4 @@ npm run dev
 可通过环境变量覆盖：
 - `MYSQL_HOST` `MYSQL_PORT` `MYSQL_DB` `MYSQL_USER` `MYSQL_PASSWORD`
 - `NEO4J_URI` `NEO4J_USER` `NEO4J_PASSWORD`
+- `APP_AI_QUEUE_NAME`（映射 `app.ai.queue-name`，默认 `careertry.ai.tasks`）
