@@ -25,20 +25,14 @@ public class SchoolService {
     @Transactional
     public SchoolFeedback createFeedback(SchoolFeedbackRequest request) {
         UserAccount account = loadCurrentSchoolAccount();
-        if (request.getStudentName() == null || request.getStudentName().isBlank()) {
-            throw new IllegalArgumentException("studentName cannot be blank");
-        }
-        if (request.getMentor() == null || request.getMentor().isBlank()) {
-            throw new IllegalArgumentException("mentor cannot be blank");
-        }
-        if (request.getComment() == null || request.getComment().isBlank()) {
-            throw new IllegalArgumentException("comment cannot be blank");
-        }
+        String studentName = requireNonBlank(request.getStudentName(), "studentName");
+        String mentor = requireNonBlank(request.getMentor(), "mentor");
+        String comment = requireNonBlank(request.getComment(), "comment");
         SchoolFeedback feedback = new SchoolFeedback();
-        feedback.setStudentName(request.getStudentName().trim());
+        feedback.setStudentName(studentName);
         feedback.setSchoolName(account.getSchoolName().trim());
-        feedback.setMentor(request.getMentor().trim());
-        feedback.setComment(request.getComment().trim());
+        feedback.setMentor(mentor);
+        feedback.setComment(comment);
         SchoolFeedback saved = schoolFeedbackRepository.save(feedback);
         userAccountRepository.findByRoleAndSchoolNameAndDisplayNameIgnoreCase(
                 com.ifreelife.carrertry.entity.UserRole.STUDENT,
@@ -52,12 +46,10 @@ public class SchoolService {
 
     public List<SchoolFeedback> queryByStudent(String studentName) {
         UserAccount account = loadCurrentSchoolAccount();
-        if (studentName == null || studentName.isBlank()) {
-            throw new IllegalArgumentException("studentName cannot be blank");
-        }
+        String normalizedStudentName = requireNonBlank(studentName, "studentName");
         return schoolFeedbackRepository.findBySchoolNameAndStudentNameOrderByCreatedAtDesc(
             account.getSchoolName().trim(),
-            studentName.trim()
+            normalizedStudentName
         );
     }
 
@@ -88,5 +80,12 @@ public class SchoolService {
             profile.setPortraitTags((tags + ",导师反馈").replaceAll("^,", ""));
         }
         studentProfileRepository.save(profile);
+    }
+
+    private String requireNonBlank(String value, String fieldName) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(fieldName + " cannot be blank");
+        }
+        return value.trim();
     }
 }
