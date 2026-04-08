@@ -256,7 +256,7 @@ public class MilestoneService {
             throw new IllegalArgumentException("page must be >= 0");
         }
         if (size < 1 || size > 100) {
-            throw new IllegalArgumentException("size must be in [1, 100]");
+            throw new IllegalArgumentException("size must be between 1 and 100 (inclusive)");
         }
         Page<UserAccount> students = userAccountRepository.findByRoleAndSchoolName(
             UserRole.STUDENT,
@@ -393,9 +393,10 @@ public class MilestoneService {
             Map.of("range", "80-89", "count", buckets[3]),
             Map.of("range", "90-100", "count", buckets[4])
         );
-        int avgScore = usernames.isEmpty() ? 0 : (int) Math.round(
-            usernames.stream().mapToInt(u -> safeScore(scoreMap.getOrDefault(u, 0))).average().orElse(0.0)
-        );
+        double averageScore = usernames.isEmpty()
+            ? 0d
+            : usernames.stream().mapToInt(u -> safeScore(scoreMap.getOrDefault(u, 0))).average().orElse(0d);
+        int avgScore = (int) Math.round(averageScore);
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("totalStudents", usernames.size());
         result.put("intentionPortrait", intentionPortrait);
