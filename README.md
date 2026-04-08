@@ -70,7 +70,7 @@ npm run dev
 - `POST /enterprise/jobs`：创建岗位（名称、部门、地点、薪资区间、经验、学历、技能、描述、状态）
 - `GET /enterprise/jobs?page=0&size=10&enterpriseName=...`：企业岗位分页列表
 - `POST /enterprise/jobs/import`：JSON批量导入（同企业+岗位+部门+地点去重）
-- `POST /enterprise/jobs/import/excel`：Excel导入入口（当前支持 CSV 上传并按同规则去重）
+- `POST /enterprise/jobs/import/excel`：Excel导入入口（支持 `.xlsx` / `.xls`，并兼容CSV文本上传，按同规则去重）
 
 ## 学生端接口（第4-6/9/10/11步）
 - `GET /student/jobs`：浏览已审核通过岗位
