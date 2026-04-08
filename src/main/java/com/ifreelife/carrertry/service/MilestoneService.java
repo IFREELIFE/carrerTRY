@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -19,6 +20,8 @@ import java.util.stream.Collectors;
 public class MilestoneService {
     private static final int STUDENT_HOME_PAGE_SIZE = 15;
     private static final int MAX_ACCEPTANCE_STEP = 12;
+    private static final int DAILY_ACTIVE_SECONDS_CAP = 24 * 60 * 60;
+    private static final String ACTIVE_PRIORITY_RULE = "当日活跃 = 当日优先（满足30秒活跃或浏览岗位或刷新简历）";
     private static final Set<String> AI_TASK_STATUSES = Set.of("QUEUED", "EXECUTING", "SUCCESS", "FAILED");
     private static final Set<String> NOTICE_AUDIENCE_ROLES = Set.of("ADMIN", "ENTERPRISE", "STUDENT", "SCHOOL");
     private static final List<String> MBTI_TYPES = List.of(
@@ -42,6 +45,9 @@ public class MilestoneService {
     private final QualityMetricRepository qualityMetricRepository;
     private final ErrorCorrectionRecordRepository errorCorrectionRecordRepository;
     private final AcceptanceChecklistItemRepository acceptanceChecklistItemRepository;
+    private final StudentDailyActivityRepository studentDailyActivityRepository;
+    private final StudentReportRepository studentReportRepository;
+    private final StudentMentorAppointmentRepository studentMentorAppointmentRepository;
     private final AiTaskDispatchService aiTaskDispatchService;
 
     @Transactional
@@ -73,6 +79,12 @@ public class MilestoneService {
         student.setOnboardingCompleted(true);
         userAccountRepository.save(student);
         grantAchievement(student.getUsername(), "ACH_ONBOARDING");
+        createStudentReport(
+            student.getUsername(),
+            "DEVELOPMENT",
+            "个人发展报告",
+            saved.getAiSummary()
+        );
         return saved;
     }
 
@@ -100,6 +112,7 @@ public class MilestoneService {
         if (user.getRole() != UserRole.STUDENT) {
             throw new IllegalArgumentException("Only student can manage resume");
         }
+        markResumeRefreshed(user.getUsername());
         ResumeRecord record = new ResumeRecord();
         record.setStudentUsername(user.getUsername());
         record.setFileName(fileName.trim());
@@ -114,6 +127,14 @@ public class MilestoneService {
     public List<ResumeRecord> listMyResumes() {
         UserAccount user = currentUser();
         return resumeRecordRepository.findByStudentUsernameOrderByUpdatedAtDesc(user.getUsername());
+    }
+
+    public List<StudentReport> listMyReports() {
+        UserAccount user = currentUser();
+        if (user.getRole() != UserRole.STUDENT) {
+            throw new IllegalArgumentException("Only student can view reports");
+        }
+        return studentReportRepository.findByStudentUsernameOrderByCreatedAtDesc(user.getUsername());
     }
 
     public Page<JobPosting> studentHomeJobs(int page) {
@@ -180,6 +201,50 @@ public class MilestoneService {
     public List<TeacherMentor> listMentors() {
         UserAccount school = currentUser();
         return teacherMentorRepository.findBySchoolNameOrderByIdDesc(requireSchoolName(school));
+    }
+
+    public List<TeacherMentor> listMentorsForStudent() {
+        UserAccount student = currentUser();
+        if (student.getRole() != UserRole.STUDENT) {
+            throw new IllegalArgumentException("Only student can list mentors");
+        }
+        String schoolName = requireSchoolName(student);
+        return teacherMentorRepository.findBySchoolNameOrderByIdDesc(schoolName);
+    }
+
+    @Transactional
+    public StudentMentorAppointment bookMentorAppointment(Long mentorId, String appointmentTime, String note) {
+        UserAccount student = currentUser();
+        if (student.getRole() != UserRole.STUDENT) {
+            throw new IllegalArgumentException("Only student can book mentor appointment");
+        }
+        if (mentorId == null || mentorId <= 0) {
+            throw new IllegalArgumentException("mentorId must be positive");
+        }
+        String schoolName = requireSchoolName(student);
+        String normalizedTime = requireNonBlank(appointmentTime, "appointmentTime");
+        TeacherMentor mentor = teacherMentorRepository.findByIdAndSchoolName(mentorId, schoolName)
+            .orElseThrow(() -> new IllegalArgumentException("Mentor not found in current school"));
+
+        StudentMentorAppointment appointment = new StudentMentorAppointment();
+        appointment.setStudentUsername(student.getUsername());
+        appointment.setStudentName(student.getDisplayName());
+        appointment.setSchoolName(schoolName);
+        appointment.setMentorId(mentor.getId());
+        appointment.setMentorName(mentor.getName());
+        appointment.setAppointmentTime(normalizedTime);
+        appointment.setStatus("BOOKED");
+        appointment.setNote(note == null ? "" : note.trim());
+        appointment.setCreatedAt(LocalDateTime.now());
+        return studentMentorAppointmentRepository.save(appointment);
+    }
+
+    public List<StudentMentorAppointment> myMentorAppointments() {
+        UserAccount student = currentUser();
+        if (student.getRole() != UserRole.STUDENT) {
+            throw new IllegalArgumentException("Only student can view appointments");
+        }
+        return studentMentorAppointmentRepository.findByStudentUsernameOrderByCreatedAtDesc(student.getUsername());
     }
 
     public List<Map<String, Object>> schoolStudentsWithProfile() {
@@ -291,7 +356,15 @@ public class MilestoneService {
         plan.setDynamicAdjustment(dynamicAdjustment == null ? "" : dynamicAdjustment.trim());
         plan.setUpdatedAt(LocalDateTime.now());
         grantAchievement(student.getUsername(), "ACH_PLAN_CREATED");
-        return careerPlanRepository.save(plan);
+        CareerPlan saved = careerPlanRepository.save(plan);
+        createStudentReport(
+            student.getUsername(),
+            "CAREER_PLAN",
+            "职业规划报告",
+            "职业规划：" + Objects.requireNonNullElse(saved.getCareerPlanning(), "")
+                + "\n培养计划：" + Objects.requireNonNullElse(saved.getTrainingPlan(), "")
+        );
+        return saved;
     }
 
     public CareerPlan myCareerPlan() {
@@ -452,6 +525,103 @@ public class MilestoneService {
         return errorCorrectionRecordRepository.findByStudentUsernameOrderByCreatedAtDesc(user.getUsername());
     }
 
+    /**
+     * Records the current student's daily activity facts used by the "active today = prioritized today" rule.
+     * activeSeconds is accumulated and capped at 86400 seconds for a single day.
+     * Returns a daily summary map with keys: date, activeSeconds, viewedJobsCount, resumeRefreshed,
+     * checkedIn, consecutiveCheckInDays, priorityToday and ruleAnnouncement.
+     */
+    @Transactional
+    public Map<String, Object> recordDailyActivity(Integer activeSeconds, boolean viewedJobs, boolean refreshedResume) {
+        UserAccount student = currentUser();
+        if (student.getRole() != UserRole.STUDENT) {
+            throw new IllegalArgumentException("Only student can record activity");
+        }
+        LocalDate today = LocalDate.now();
+        StudentDailyActivity activity = loadOrCreateDailyActivity(student.getUsername(), today);
+        int normalizedSeconds = activeSeconds == null ? 0 : Math.max(0, activeSeconds);
+        long nextSeconds = (long) activity.getActiveSeconds() + normalizedSeconds;
+        activity.setActiveSeconds((int) Math.min(DAILY_ACTIVE_SECONDS_CAP, nextSeconds));
+        if (viewedJobs) {
+            activity.setViewedJobsCount(activity.getViewedJobsCount() + 1);
+        }
+        if (refreshedResume) {
+            activity.setResumeRefreshed(true);
+        }
+        activity.setUpdatedAt(LocalDateTime.now());
+        studentDailyActivityRepository.save(activity);
+        return buildDailySummary(student.getUsername(), activity);
+    }
+
+    /**
+     * Performs today's check-in for the current student when priority prerequisites are met.
+     * Prerequisites: at least 30 seconds active OR browsed jobs OR refreshed resume.
+     * Returns a daily summary map with keys: date, activeSeconds, viewedJobsCount, resumeRefreshed,
+     * checkedIn, consecutiveCheckInDays, priorityToday and ruleAnnouncement.
+     */
+    @Transactional
+    public Map<String, Object> checkInToday() {
+        UserAccount student = currentUser();
+        if (student.getRole() != UserRole.STUDENT) {
+            throw new IllegalArgumentException("Only student can check in");
+        }
+        LocalDate today = LocalDate.now();
+        StudentDailyActivity activity = loadOrCreateDailyActivity(student.getUsername(), today);
+        if (!canPriorityToday(activity)) {
+            throw new IllegalArgumentException("Need 30s activity, job browsing, or resume refresh before check-in");
+        }
+        if (!Boolean.TRUE.equals(activity.getCheckedIn())) {
+            activity.setCheckedIn(true);
+            activity.setCheckedInAt(LocalDateTime.now());
+            activity.setUpdatedAt(LocalDateTime.now());
+            studentDailyActivityRepository.save(activity);
+        }
+        return buildDailySummary(student.getUsername(), activity);
+    }
+
+    /**
+     * Returns today's activity/check-in summary:
+     * date, activeSeconds, viewedJobsCount, resumeRefreshed, checkedIn,
+     * consecutiveCheckInDays, priorityToday and ruleAnnouncement.
+     */
+    public Map<String, Object> myDailyCheckInSummary() {
+        UserAccount student = currentUser();
+        if (student.getRole() != UserRole.STUDENT) {
+            throw new IllegalArgumentException("Only student can view check-in summary");
+        }
+        LocalDate today = LocalDate.now();
+        StudentDailyActivity activity = loadOrCreateDailyActivity(student.getUsername(), today);
+        return buildDailySummary(student.getUsername(), activity);
+    }
+
+    /**
+     * Returns student home overview map with keys:
+     * dailyCheckIn, resumeUploaded, resumeCount, mbtiCompleted, matchedJobCount, generatedReports,
+     * consecutiveCheckInDays.
+     */
+    public Map<String, Object> studentHomeSummary() {
+        UserAccount student = currentUser();
+        if (student.getRole() != UserRole.STUDENT) {
+            throw new IllegalArgumentException("Only student can view home summary");
+        }
+        StudentDailyActivity dailyActivity = loadOrCreateDailyActivity(student.getUsername(), LocalDate.now());
+        Optional<StudentProfile> profileOpt = studentProfileRepository.findByStudentUsername(student.getUsername());
+        long resumeCount = resumeRecordRepository.countByStudentUsername(student.getUsername());
+        int matchedJobCount = profileOpt
+            .map(this::calculateMatchedJobCount)
+            .orElse(0);
+        List<StudentReport> reports = studentReportRepository.findByStudentUsernameOrderByCreatedAtDesc(student.getUsername());
+        return Map.of(
+            "dailyCheckIn", buildDailySummary(student.getUsername(), dailyActivity),
+            "resumeUploaded", resumeCount > 0,
+            "resumeCount", resumeCount,
+            "mbtiCompleted", profileOpt.map(StudentProfile::getMbtiType).filter(v -> v != null && !v.isBlank()).isPresent(),
+            "matchedJobCount", matchedJobCount,
+            "generatedReports", reports,
+            "consecutiveCheckInDays", calculateCurrentStreak(student.getUsername())
+        );
+    }
+
     @Transactional
     public AcceptanceChecklistItem updateAcceptance(Integer stepNo, String itemName, boolean doneFlag, String note) {
         if (stepNo == null || stepNo < 1 || stepNo > MAX_ACCEPTANCE_STEP) {
@@ -491,7 +661,7 @@ public class MilestoneService {
 
     private String requireSchoolName(UserAccount school) {
         if (school.getSchoolName() == null || school.getSchoolName().isBlank()) {
-            throw new IllegalArgumentException("Current school account has no school binding");
+            throw new IllegalArgumentException("Current account has no school binding");
         }
         return school.getSchoolName().trim();
     }
@@ -531,6 +701,91 @@ public class MilestoneService {
             throw new IllegalArgumentException(fieldName + " cannot be blank");
         }
         return value.trim();
+    }
+
+    private StudentDailyActivity loadOrCreateDailyActivity(String studentUsername, LocalDate day) {
+        return studentDailyActivityRepository.findByStudentUsernameAndActivityDate(studentUsername, day)
+            .orElseGet(() -> {
+                StudentDailyActivity record = new StudentDailyActivity();
+                record.setStudentUsername(studentUsername);
+                record.setActivityDate(day);
+                record.setActiveSeconds(0);
+                record.setViewedJobsCount(0);
+                record.setResumeRefreshed(false);
+                record.setCheckedIn(false);
+                record.setUpdatedAt(LocalDateTime.now());
+                return studentDailyActivityRepository.save(record);
+            });
+    }
+
+    private void markResumeRefreshed(String studentUsername) {
+        StudentDailyActivity activity = loadOrCreateDailyActivity(studentUsername, LocalDate.now());
+        activity.setResumeRefreshed(true);
+        activity.setUpdatedAt(LocalDateTime.now());
+        studentDailyActivityRepository.save(activity);
+    }
+
+    private boolean canPriorityToday(StudentDailyActivity activity) {
+        return activity.getActiveSeconds() >= 30
+            || activity.getViewedJobsCount() > 0
+            || Boolean.TRUE.equals(activity.getResumeRefreshed());
+    }
+
+    private int calculateCurrentStreak(String studentUsername) {
+        return calculateCurrentStreak(studentUsername, LocalDate.now());
+    }
+
+    private int calculateCurrentStreak(String studentUsername, LocalDate baseDate) {
+        List<StudentDailyActivity> records = studentDailyActivityRepository
+            .findByStudentUsernameAndCheckedInTrueOrderByActivityDateDesc(studentUsername);
+        if (records.isEmpty()) {
+            return 0;
+        }
+        LocalDate expected = baseDate;
+        int streak = 0;
+        for (StudentDailyActivity record : records) {
+            if (!expected.equals(record.getActivityDate())) {
+                break;
+            }
+            streak++;
+            expected = expected.minusDays(1);
+        }
+        return streak;
+    }
+
+    private Map<String, Object> buildDailySummary(String studentUsername, StudentDailyActivity activity) {
+        return Map.of(
+            "date", activity.getActivityDate(),
+            "activeSeconds", activity.getActiveSeconds(),
+            "viewedJobsCount", activity.getViewedJobsCount(),
+            "resumeRefreshed", activity.getResumeRefreshed(),
+            "checkedIn", activity.getCheckedIn(),
+            "consecutiveCheckInDays", calculateCurrentStreak(studentUsername),
+            "priorityToday", canPriorityToday(activity),
+            "ruleAnnouncement", ACTIVE_PRIORITY_RULE
+        );
+    }
+
+    private int calculateMatchedJobCount(StudentProfile profile) {
+        return (int) jobPostingRepository.findByStatus(JobStatus.APPROVED)
+            .stream()
+            .filter(job -> {
+                int skill = scoreByContains(job.getSkills(), profile.getTechStack());
+                int exp = scoreByContains(job.getExperienceRequirement(), profile.getCapabilityInfo());
+                int edu = scoreByContains(job.getEducationRequirement(), profile.getCapabilityInfo());
+                double total = ((double) skill + exp + edu) / 3.0d;
+                return total >= 60.0d;
+            })
+            .count();
+    }
+
+    private void createStudentReport(String studentUsername, String reportType, String reportTitle, String reportSummary) {
+        StudentReport report = new StudentReport();
+        report.setStudentUsername(studentUsername);
+        report.setReportType(reportType);
+        report.setReportTitle(reportTitle);
+        report.setReportSummary(reportSummary == null ? "" : reportSummary.trim());
+        studentReportRepository.save(report);
     }
 
     private int scoreByContains(String target, String source) {

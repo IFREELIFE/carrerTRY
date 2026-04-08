@@ -34,15 +34,71 @@ export default function StudentPage() {
   const [achievements, setAchievements] = useState([])
   const [correction, setCorrection] = useState({ wrongPoint: '', correctionAction: '', closedLoopStatus: 'OPEN' })
   const [corrections, setCorrections] = useState([])
+  const [dailySummary, setDailySummary] = useState(null)
+  const [homeSummary, setHomeSummary] = useState(null)
+  const [reports, setReports] = useState([])
+  const [mentors, setMentors] = useState([])
+  const [appointmentForm, setAppointmentForm] = useState({ mentorId: '', appointmentTime: '', note: '' })
+  const [appointments, setAppointments] = useState([])
 
   async function loadHome(page = homePage) {
     try {
       const data = await requestJson(`${API_BASE}/student/home?page=${page}`)
       setHomeJobs(data.content ?? [])
       setHomePage(data.number ?? page)
+      await requestJson(`${API_BASE}/student/activity`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ viewedJobs: true })
+      })
+      await loadDailySummary()
+      await loadHomeSummary()
       setMessage('首页岗位加载成功')
     } catch (err) {
       setMessage(`首页岗位加载失败：${err.message}`)
+    }
+  }
+
+  async function recordActive30s() {
+    try {
+      const data = await requestJson(`${API_BASE}/student/activity`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ activeSeconds: 30 })
+      })
+      setDailySummary(data)
+      setMessage('已记录30秒活跃')
+    } catch (err) {
+      setMessage(`活跃记录失败：${err.message}`)
+    }
+  }
+
+  async function checkInToday() {
+    try {
+      const data = await requestJson(`${API_BASE}/student/check-in`, { method: 'POST' })
+      setDailySummary(data)
+      setMessage('签到成功')
+    } catch (err) {
+      setMessage(`签到失败：${err.message}`)
+    }
+  }
+
+  async function loadDailySummary() {
+    try {
+      const data = await requestJson(`${API_BASE}/student/check-in/summary`)
+      setDailySummary(data)
+    } catch (err) {
+      console.warn('loadDailySummary failed', err)
+      setDailySummary(null)
+    }
+  }
+
+  async function loadHomeSummary() {
+    try {
+      const data = await requestJson(`${API_BASE}/student/home/summary`)
+      setHomeSummary(data)
+    } catch {
+      setHomeSummary(null)
     }
   }
 
@@ -54,6 +110,8 @@ export default function StudentPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(onboarding)
       })
+      await loadHomeSummary()
+      await loadReports()
       setMessage('首次链路完成')
     } catch (err) {
       setMessage(`首次链路失败：${err.message}`)
@@ -101,6 +159,7 @@ export default function StudentPage() {
     try {
       const data = await requestJson(`${API_BASE}/student/resumes`)
       setResumes(Array.isArray(data) ? data : [])
+      await loadHomeSummary()
       setMessage('简历列表加载成功')
     } catch (err) {
       setMessage(`简历列表加载失败：${err.message}`)
@@ -161,6 +220,8 @@ export default function StudentPage() {
         body: JSON.stringify(plan)
       })
       setMyPlan(data)
+      await loadReports()
+      await loadHomeSummary()
       setMessage('规划保存成功')
     } catch (err) {
       setMessage(`规划保存失败：${err.message}`)
@@ -174,6 +235,58 @@ export default function StudentPage() {
       setMessage('规划加载成功')
     } catch (err) {
       setMessage(`规划加载失败：${err.message}`)
+    }
+  }
+
+  async function loadReports() {
+    try {
+      const data = await requestJson(`${API_BASE}/student/reports`)
+      setReports(Array.isArray(data) ? data : [])
+      setMessage('报告列表加载成功')
+    } catch (err) {
+      setMessage(`报告列表加载失败：${err.message}`)
+    }
+  }
+
+  async function loadMentors() {
+    try {
+      const data = await requestJson(`${API_BASE}/student/mentors`)
+      setMentors(Array.isArray(data) ? data : [])
+      setMessage('导师列表加载成功')
+    } catch (err) {
+      setMessage(`导师列表加载失败：${err.message}`)
+    }
+  }
+
+  async function bookAppointment() {
+    if (!appointmentForm.mentorId || !appointmentForm.appointmentTime.trim()) {
+      setMessage('请填写导师ID与预约时间')
+      return
+    }
+    try {
+      await requestJson(`${API_BASE}/student/appointments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mentorId: Number(appointmentForm.mentorId),
+          appointmentTime: appointmentForm.appointmentTime,
+          note: appointmentForm.note
+        })
+      })
+      setMessage('预约提交成功')
+      await loadAppointments()
+    } catch (err) {
+      setMessage(`预约提交失败：${err.message}`)
+    }
+  }
+
+  async function loadAppointments() {
+    try {
+      const data = await requestJson(`${API_BASE}/student/appointments`)
+      setAppointments(Array.isArray(data) ? data : [])
+      setMessage('我的预约加载成功')
+    } catch (err) {
+      setMessage(`我的预约加载失败：${err.message}`)
     }
   }
 
@@ -228,6 +341,23 @@ export default function StudentPage() {
 
       <section style={{ border: '1px solid #ddd', padding: 12, marginBottom: 12 }}>
         <h3>首页岗位（15条分页）</h3>
+        <button onClick={loadDailySummary}>加载签到信息</button>
+        <button onClick={loadHomeSummary} style={{ marginLeft: 8 }}>加载首页概览</button>
+        <button onClick={loadReports} style={{ marginLeft: 8 }}>加载报告列表</button>
+        <button onClick={recordActive30s} style={{ marginLeft: 8 }}>记录30秒活跃</button>
+        <button onClick={checkInToday} style={{ marginLeft: 8 }}>今日签到</button>
+        <pre>{dailySummary ? JSON.stringify(dailySummary, null, 2) : '暂无签到数据'}</pre>
+        <ul>
+          <li>每日签到：{homeSummary?.dailyCheckIn?.checkedIn ? '已签到' : '未签到'}</li>
+          <li>简历上传：{homeSummary?.resumeUploaded ? `已上传(${homeSummary?.resumeCount})` : '未上传'}</li>
+          <li>MBTI测试：{homeSummary?.mbtiCompleted ? '已完成' : '未完成'}</li>
+          <li>匹配岗位：{homeSummary?.matchedJobCount ?? 0}</li>
+          <li>连续签到天数：{homeSummary?.consecutiveCheckInDays ?? 0}</li>
+        </ul>
+        <h4>已生成报告</h4>
+        <ul>
+          {reports.map((r) => <li key={r.id}>{r.reportType} | {r.reportTitle} | {r.createdAt}</li>)}
+        </ul>
         <button onClick={() => loadHome(Math.max(homePage - 1, 0))}>上一页</button>
         <button onClick={() => loadHome(homePage + 1)} style={{ marginLeft: 8 }}>下一页</button>
         <button onClick={() => loadHome(homePage)} style={{ marginLeft: 8 }}>刷新</button>
@@ -299,6 +429,18 @@ export default function StudentPage() {
         <button onClick={loadAchievements} style={{ marginLeft: 8 }}>加载成就</button>
         <ul>{notices.map((n) => <li key={n.id}>{n.noticeType} | {n.title}</li>)}</ul>
         <ul>{achievements.map((a) => <li key={a.id}>{a.achievementCode} | {a.achievedAt}</li>)}</ul>
+      </section>
+
+      <section style={{ border: '1px solid #ddd', padding: 12, marginBottom: 12 }}>
+        <h3>学生预约指导（选老师/我的预约）</h3>
+        <button onClick={loadMentors}>加载导师</button>
+        <button onClick={loadAppointments} style={{ marginLeft: 8 }}>我的预约</button>
+        <ul>{mentors.map((m) => <li key={m.id}>{m.id} | {m.name} | {m.expertise} | {m.availableTime} | {m.location}</li>)}</ul>
+        <input placeholder="导师ID" value={appointmentForm.mentorId} onChange={(e) => setAppointmentForm((p) => ({ ...p, mentorId: e.target.value }))} style={{ width: '100%', marginBottom: 8 }} />
+        <input placeholder="预约时间（如 周三14:00）" value={appointmentForm.appointmentTime} onChange={(e) => setAppointmentForm((p) => ({ ...p, appointmentTime: e.target.value }))} style={{ width: '100%', marginBottom: 8 }} />
+        <textarea placeholder="预约说明" value={appointmentForm.note} onChange={(e) => setAppointmentForm((p) => ({ ...p, note: e.target.value }))} style={{ width: '100%', marginBottom: 8 }} />
+        <button onClick={bookAppointment}>提交预约</button>
+        <ul>{appointments.map((a) => <li key={a.id}>{a.mentorName} | {a.appointmentTime} | {a.status} | {a.createdAt}</li>)}</ul>
       </section>
 
       <section style={{ border: '1px solid #ddd', padding: 12 }}>

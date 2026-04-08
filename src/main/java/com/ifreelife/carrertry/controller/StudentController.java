@@ -8,6 +8,9 @@ import com.ifreelife.carrertry.entity.ResumeRecord;
 import com.ifreelife.carrertry.entity.StudentAchievement;
 import com.ifreelife.carrertry.entity.StudentProfile;
 import com.ifreelife.carrertry.entity.StudentApplication;
+import com.ifreelife.carrertry.entity.StudentMentorAppointment;
+import com.ifreelife.carrertry.entity.StudentReport;
+import com.ifreelife.carrertry.entity.TeacherMentor;
 import com.ifreelife.carrertry.service.JobService;
 import com.ifreelife.carrertry.service.MilestoneService;
 import com.ifreelife.carrertry.service.StudentService;
@@ -39,6 +42,11 @@ public class StudentController {
     @GetMapping("/home")
     public Page<JobPosting> home(@RequestParam(defaultValue = "0") int page) {
         return milestoneService.studentHomeJobs(page);
+    }
+
+    @GetMapping("/home/summary")
+    public Map<String, Object> homeSummary() {
+        return milestoneService.studentHomeSummary();
     }
 
     @GetMapping("/jobs/{id}")
@@ -77,6 +85,24 @@ public class StudentController {
         return Map.of("canApplyAndPortrait", milestoneService.canStudentApply());
     }
 
+    @PostMapping("/activity")
+    public Map<String, Object> recordActivity(@RequestBody Map<String, Object> request) {
+        int activeSeconds = parseIntField(request.get("activeSeconds"), "activeSeconds");
+        boolean viewedJobs = parseBooleanField(request.get("viewedJobs"), "viewedJobs");
+        boolean refreshedResume = parseBooleanField(request.get("refreshedResume"), "refreshedResume");
+        return milestoneService.recordDailyActivity(activeSeconds, viewedJobs, refreshedResume);
+    }
+
+    @PostMapping("/check-in")
+    public Map<String, Object> checkIn() {
+        return milestoneService.checkInToday();
+    }
+
+    @GetMapping("/check-in/summary")
+    public Map<String, Object> checkInSummary() {
+        return milestoneService.myDailyCheckInSummary();
+    }
+
     @GetMapping("/profile")
     public StudentProfile profile() {
         return milestoneService.myProfile();
@@ -106,6 +132,31 @@ public class StudentController {
     @GetMapping("/resumes")
     public List<ResumeRecord> resumes() {
         return milestoneService.listMyResumes();
+    }
+
+    @GetMapping("/reports")
+    public List<StudentReport> reports() {
+        return milestoneService.listMyReports();
+    }
+
+    @GetMapping("/mentors")
+    public List<TeacherMentor> mentors() {
+        return milestoneService.listMentorsForStudent();
+    }
+
+    @PostMapping("/appointments")
+    @ResponseStatus(HttpStatus.CREATED)
+    public StudentMentorAppointment bookAppointment(@RequestBody Map<String, Object> request) {
+        return milestoneService.bookMentorAppointment(
+            parseLongField(request.get("mentorId"), "mentorId"),
+            String.valueOf(request.getOrDefault("appointmentTime", "")),
+            String.valueOf(request.getOrDefault("note", ""))
+        );
+    }
+
+    @GetMapping("/appointments")
+    public List<StudentMentorAppointment> myAppointments() {
+        return milestoneService.myMentorAppointments();
     }
 
     @GetMapping("/portrait/matches")
@@ -159,5 +210,50 @@ public class StudentController {
     @GetMapping("/corrections")
     public List<ErrorCorrectionRecord> corrections() {
         return milestoneService.myCorrectionRecords();
+    }
+
+    private int parseIntField(Object value, String fieldName) {
+        if (value == null) {
+            return 0;
+        }
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        try {
+            return Integer.parseInt(String.valueOf(value).trim());
+        } catch (NumberFormatException ex) {
+            throw new IllegalArgumentException(fieldName + " must be an integer");
+        }
+    }
+
+    private boolean parseBooleanField(Object value, String fieldName) {
+        if (value == null) {
+            return false;
+        }
+        if (value instanceof Boolean bool) {
+            return bool;
+        }
+        String normalized = String.valueOf(value).trim();
+        if ("true".equalsIgnoreCase(normalized)) {
+            return true;
+        }
+        if ("false".equalsIgnoreCase(normalized)) {
+            return false;
+        }
+        throw new IllegalArgumentException(fieldName + " must be true or false");
+    }
+
+    private Long parseLongField(Object value, String fieldName) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        try {
+            return Long.parseLong(String.valueOf(value).trim());
+        } catch (NumberFormatException ex) {
+            throw new IllegalArgumentException(fieldName + " must be a long");
+        }
     }
 }

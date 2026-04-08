@@ -75,13 +75,20 @@ npm run dev
 ## 学生端接口（第4-6/9/10/11步）
 - `GET /student/jobs`：浏览已审核通过岗位
 - `GET /student/home?page=0`：首页岗位分页（15条）
+- `GET /student/home/summary`：首页概览（签到/简历上传/MBTI/匹配岗位数/连续签到/报告列表）
 - `GET /student/jobs/{id}`：查看已审核通过岗位详情
 - `POST /student/applications`：投递岗位（基于当前登录学生身份写入，限制同学生重复投递同岗位）
 - `GET /student/applications`：查询当前登录学生的投递记录
 - `POST /student/onboarding`：首次必填链路提交
+- `POST /student/activity`：记录当日活跃（30秒活跃/浏览岗位/刷新简历）
+- `POST /student/check-in`：当日签到（满足活跃规则后可签到）
+- `GET /student/check-in/summary`：签到与连续签到天数摘要（含“当日活跃=当日优先”规则）
 - `GET /student/profile`：学生画像
 - `PUT /student/center`：个人中心信息编辑
 - `POST /student/resumes` / `GET /student/resumes`：简历管理
+- `GET /student/reports`：已生成报告列表（发展报告/职业规划报告）
+- `GET /student/mentors`：按当前学生学校查询可预约老师
+- `POST /student/appointments` / `GET /student/appointments`：学生预约指导（选老师/我的预约）
 - `GET /student/portrait/matches`：四维匹配分
 - `POST /student/plans` / `GET /student/plans` / `GET /student/plans/pdf`：目标规划与PDF
 - `GET /student/notices`：通知中心
