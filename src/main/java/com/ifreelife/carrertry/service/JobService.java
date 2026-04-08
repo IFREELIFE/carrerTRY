@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -68,11 +69,15 @@ public class JobService {
         if (rawSkills == null || rawSkills.isBlank()) {
             return;
         }
+        List<SkillNode> nodes = new ArrayList<>();
         for (String s : rawSkills.split(",")) {
             String skill = s.trim();
             if (!skill.isEmpty()) {
-                skillNodeRepository.save(new SkillNode(skill));
+                nodes.add(new SkillNode(skill));
             }
+        }
+        if (!nodes.isEmpty()) {
+            skillNodeRepository.saveAll(nodes);
         }
     }
 }
