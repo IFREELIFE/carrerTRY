@@ -243,15 +243,25 @@ public class MilestoneService {
     }
 
     public List<StudentApplication> intelligentScreening(String keyword) {
-        String key = keyword == null ? "" : keyword.trim().toLowerCase();
-        List<StudentApplication> enterpriseApplications = enterpriseApplications();
-        if (key.isEmpty()) {
-            return enterpriseApplications;
+        UserAccount enterprise = currentUser();
+        if (enterprise.getRole() != UserRole.ENTERPRISE) {
+            throw new IllegalArgumentException("Only enterprise can view applications");
         }
-        return enterpriseApplications.stream()
-            .filter(app -> containsIgnoreCase(app.getTeacherCommentSnapshot(), key)
-                || containsIgnoreCase(app.getResumeSummary(), key))
-            .toList();
+        List<Long> ownedJobIds = ownedJobIds(enterprise.getEnterpriseName());
+        if (ownedJobIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        String key = keyword == null ? "" : keyword.trim().toLowerCase();
+        if (key.isEmpty()) {
+            return studentApplicationRepository.findByJobIdInOrderByAppliedAtDesc(ownedJobIds);
+        }
+        return studentApplicationRepository
+            .findByJobIdInAndTeacherCommentSnapshotContainingIgnoreCaseOrJobIdInAndResumeSummaryContainingIgnoreCaseOrderByAppliedAtDesc(
+                ownedJobIds,
+                key,
+                ownedJobIds,
+                key
+            );
     }
 
     @Transactional
@@ -460,10 +470,6 @@ public class MilestoneService {
         if (!enterprise.getEnterpriseName().trim().equalsIgnoreCase(job.getEnterpriseName())) {
             throw new IllegalArgumentException("No permission to operate this application");
         }
-    }
-
-    private boolean containsIgnoreCase(String value, String normalizedKeyword) {
-        return value != null && value.toLowerCase().contains(normalizedKeyword);
     }
 
     private void grantAchievement(String studentUsername, String code) {
