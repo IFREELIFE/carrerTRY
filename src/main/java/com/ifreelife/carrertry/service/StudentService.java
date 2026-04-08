@@ -2,6 +2,7 @@ package com.ifreelife.carrertry.service;
 
 import com.ifreelife.carrertry.dto.ApplyRequest;
 import com.ifreelife.carrertry.entity.JobPosting;
+import com.ifreelife.carrertry.entity.JobStatus;
 import com.ifreelife.carrertry.entity.StudentApplication;
 import com.ifreelife.carrertry.repository.StudentApplicationRepository;
 import lombok.RequiredArgsConstructor;
@@ -19,7 +20,10 @@ public class StudentService {
 
     @Transactional
     public StudentApplication apply(ApplyRequest request) {
-        jobService.getById(request.getJobId());
+        JobPosting jobPosting = jobService.getById(request.getJobId());
+        if (jobPosting.getStatus() != JobStatus.APPROVED) {
+            throw new IllegalStateException("Job is not open for application");
+        }
         StudentApplication application = new StudentApplication();
         application.setJobId(request.getJobId());
         application.setStudentName(request.getStudentName());

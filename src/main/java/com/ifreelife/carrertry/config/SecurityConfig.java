@@ -1,6 +1,7 @@
 package com.ifreelife.carrertry.config;
 
 import com.ifreelife.carrertry.common.RoleConstants;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
@@ -15,6 +16,18 @@ import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
 public class SecurityConfig {
+
+    @Value("${RBAC_ENTERPRISE_PASSWORD:Enterprise@1234}")
+    private String enterprisePassword;
+
+    @Value("${RBAC_ADMIN_PASSWORD:Admin@1234}")
+    private String adminPassword;
+
+    @Value("${RBAC_STUDENT_PASSWORD:Student@1234}")
+    private String studentPassword;
+
+    @Value("${RBAC_SCHOOL_PASSWORD:School@1234}")
+    private String schoolPassword;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -34,10 +47,10 @@ public class SecurityConfig {
     @Bean
     public UserDetailsService userDetailsService(PasswordEncoder passwordEncoder) {
         return new InMemoryUserDetailsManager(
-            User.withUsername("enterprise").password(passwordEncoder.encode("123456")).roles(RoleConstants.ENTERPRISE).build(),
-            User.withUsername("admin").password(passwordEncoder.encode("123456")).roles(RoleConstants.ADMIN).build(),
-            User.withUsername("student").password(passwordEncoder.encode("123456")).roles(RoleConstants.STUDENT).build(),
-            User.withUsername("school").password(passwordEncoder.encode("123456")).roles(RoleConstants.SCHOOL).build()
+            User.withUsername("enterprise").password(passwordEncoder.encode(enterprisePassword)).roles(RoleConstants.ENTERPRISE).build(),
+            User.withUsername("admin").password(passwordEncoder.encode(adminPassword)).roles(RoleConstants.ADMIN).build(),
+            User.withUsername("student").password(passwordEncoder.encode(studentPassword)).roles(RoleConstants.STUDENT).build(),
+            User.withUsername("school").password(passwordEncoder.encode(schoolPassword)).roles(RoleConstants.SCHOOL).build()
         );
     }
 

@@ -30,10 +30,10 @@
 - `SCHOOL` 访问 `/school/**`
 
 默认测试账号（HTTP Basic）：
-- `admin/123456`
-- `enterprise/123456`
-- `student/123456`
-- `school/123456`
+- `admin/${RBAC_ADMIN_PASSWORD:Admin@1234}`
+- `enterprise/${RBAC_ENTERPRISE_PASSWORD:Enterprise@1234}`
+- `student/${RBAC_STUDENT_PASSWORD:Student@1234}`
+- `school/${RBAC_SCHOOL_PASSWORD:School@1234}`
 
 ## 运行
 ```bash
