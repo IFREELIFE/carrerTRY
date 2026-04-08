@@ -26,6 +26,9 @@ import java.util.Set;
 @Service
 @RequiredArgsConstructor
 public class JobService {
+    private static final int EXPECTED_EXCEL_COLUMN_COUNT = 9;
+    private static final String EXPECTED_HEADER =
+        "title,department,location,salarymin,salarymax,experiencerequirement,educationrequirement,skills,description";
 
     private final JobPostingRepository jobPostingRepository;
     private final SkillNodeRepository skillNodeRepository;
@@ -107,11 +110,11 @@ public class JobService {
                 if (line.isBlank()) {
                     continue;
                 }
-                if (lineNo == 1 && line.toLowerCase().contains("title")) {
+                if (lineNo == 1 && isExpectedHeader(line)) {
                     continue;
                 }
                 String[] cells = line.split(",", -1);
-                if (cells.length < 9) {
+                if (cells.length < EXPECTED_EXCEL_COLUMN_COUNT) {
                     throw new IllegalArgumentException("Invalid excel row at line " + lineNo);
                 }
                 JobCreateRequest request = new JobCreateRequest();
@@ -195,13 +198,26 @@ public class JobService {
     }
 
     private String dedupKey(String enterpriseName, String title, String department, String location) {
-        return (enterpriseName + "|" + title + "|" + department + "|" + location).toLowerCase().trim();
+        return String.join(
+            "|",
+            enterpriseName.trim().toLowerCase(),
+            title.trim().toLowerCase(),
+            department.trim().toLowerCase(),
+            location.trim().toLowerCase()
+        );
     }
 
     private void validateSalaryRange(JobCreateRequest request) {
+        if (request.getSalaryMin() == null || request.getSalaryMax() == null) {
+            throw new IllegalArgumentException("salaryMin and salaryMax are required");
+        }
         if (request.getSalaryMin().compareTo(request.getSalaryMax()) > 0) {
             throw new IllegalArgumentException("salaryMin cannot be greater than salaryMax");
         }
+    }
+
+    private boolean isExpectedHeader(String line) {
+        return line.trim().toLowerCase().replace(" ", "").equals(EXPECTED_HEADER);
     }
 
     private BigDecimal parseDecimal(String value, int lineNo) {

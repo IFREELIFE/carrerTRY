@@ -118,7 +118,10 @@ export default function EnterprisePage() {
 
       <section style={{ border: '1px solid #ddd', padding: 12, marginBottom: 12 }}>
         <h3>Excel导入入口（CSV）</h3>
-        <p>列顺序：title,department,location,salaryMin,salaryMax,experienceRequirement,educationRequirement,skills,description</p>
+        <p>
+          列顺序 / Column order:
+          title,department,location,salaryMin,salaryMax,experienceRequirement,educationRequirement,skills,description
+        </p>
         <input type="file" accept=".csv,.txt" onChange={(e) => setExcelFile(e.target.files?.[0] ?? null)} />
         <button type="button" onClick={importExcel} style={{ marginLeft: 8 }}>上传导入</button>
       </section>

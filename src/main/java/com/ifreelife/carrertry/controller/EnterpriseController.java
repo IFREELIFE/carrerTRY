@@ -5,14 +5,17 @@ import com.ifreelife.carrertry.dto.JobImportRequest;
 import com.ifreelife.carrertry.dto.JobImportResult;
 import com.ifreelife.carrertry.entity.JobPosting;
 import com.ifreelife.carrertry.service.JobService;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 @RestController
+@Validated
 @RequiredArgsConstructor
 @RequestMapping("/enterprise/jobs")
 public class EnterpriseController {
@@ -35,7 +38,7 @@ public class EnterpriseController {
     @ResponseStatus(HttpStatus.CREATED)
     public JobImportResult importExcel(
         @RequestParam("file") MultipartFile file,
-        @RequestParam String enterpriseName
+        @RequestParam @NotBlank String enterpriseName
     ) {
         return jobService.importExcel(file, enterpriseName);
     }
