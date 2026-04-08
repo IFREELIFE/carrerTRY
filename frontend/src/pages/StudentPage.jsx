@@ -352,7 +352,7 @@ export default function StudentPage() {
           <li>简历上传：{homeSummary?.resumeUploaded ? `已上传(${homeSummary?.resumeCount})` : '未上传'}</li>
           <li>MBTI测试：{homeSummary?.mbtiCompleted ? '已完成' : '未完成'}</li>
           <li>匹配岗位：{homeSummary?.matchedJobCount ?? 0}</li>
-          <li>连续签到日长：{homeSummary?.consecutiveCheckInDays ?? 0}</li>
+          <li>连续签到天数：{homeSummary?.consecutiveCheckInDays ?? 0}</li>
         </ul>
         <h4>已生成报告</h4>
         <ul>

@@ -361,7 +361,8 @@ public class MilestoneService {
             student.getUsername(),
             "CAREER_PLAN",
             "职业规划报告",
-            saved.getCareerPlanning() + " | " + saved.getTrainingPlan()
+            "职业规划：" + Objects.requireNonNullElse(saved.getCareerPlanning(), "")
+                + "\n培养计划：" + Objects.requireNonNullElse(saved.getTrainingPlan(), "")
         );
         return saved;
     }
@@ -540,7 +541,7 @@ public class MilestoneService {
         StudentDailyActivity activity = loadOrCreateDailyActivity(student.getUsername(), today);
         int normalizedSeconds = activeSeconds == null ? 0 : Math.max(0, activeSeconds);
         long nextSeconds = (long) activity.getActiveSeconds() + normalizedSeconds;
-        activity.setActiveSeconds((int) Math.min(DAILY_ACTIVE_SECONDS_CAP, Math.max(0L, nextSeconds)));
+        activity.setActiveSeconds((int) Math.min(DAILY_ACTIVE_SECONDS_CAP, nextSeconds));
         if (viewedJobs) {
             activity.setViewedJobsCount(activity.getViewedJobsCount() + 1);
         }
