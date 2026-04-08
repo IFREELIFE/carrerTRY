@@ -17,4 +17,6 @@ public interface UserAccountRepository extends JpaRepository<UserAccount, Long> 
     List<UserAccount> findByRole(UserRole role);
 
     List<UserAccount> findByRoleAndSchoolName(UserRole role, String schoolName);
+
+    Optional<UserAccount> findByRoleAndSchoolNameAndDisplayNameIgnoreCase(UserRole role, String schoolName, String displayName);
 }

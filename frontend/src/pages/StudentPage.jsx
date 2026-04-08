@@ -4,7 +4,12 @@ const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8080'
 
 async function requestJson(url, options) {
   const response = await fetch(url, options)
-  const data = await response.json()
+  let data = null
+  try {
+    data = await response.json()
+  } catch {
+    data = null
+  }
   if (!response.ok) throw new Error(data.message ?? '请求失败')
   return data
 }

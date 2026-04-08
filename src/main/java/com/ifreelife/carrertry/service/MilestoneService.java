@@ -235,15 +235,11 @@ public class MilestoneService {
 
     public List<StudentApplication> intelligentScreening(String keyword) {
         String key = keyword == null ? "" : keyword.trim().toLowerCase();
-        List<StudentApplication> all = studentApplicationRepository.findAll();
         if (key.isEmpty()) {
-            return all;
+            return studentApplicationRepository.findAll();
         }
-        return all.stream().filter(a -> {
-            String teacher = Optional.ofNullable(a.getTeacherCommentSnapshot()).orElse("").toLowerCase();
-            String resume = Optional.ofNullable(a.getResumeSummary()).orElse("").toLowerCase();
-            return teacher.contains(key) || resume.contains(key);
-        }).toList();
+        return studentApplicationRepository
+            .findByTeacherCommentSnapshotContainingIgnoreCaseOrResumeSummaryContainingIgnoreCaseOrderByAppliedAtDesc(key, key);
     }
 
     @Transactional
@@ -301,14 +297,28 @@ public class MilestoneService {
 
     @Transactional
     public void ensureAchievementDefinitions() {
-        for (int i = 1; i <= 30; i++) {
-            String code = "ACH_" + String.format("%02d", i);
+        List<String[]> required = new ArrayList<>(List.of(
+            new String[]{"ACH_ONBOARDING", "首次链路完成", "完成首次登录必填链路", "首次链路完成"},
+            new String[]{"ACH_RESUME_UPLOAD", "简历上传", "首次上传简历", "上传简历"},
+            new String[]{"ACH_INTERVIEW_PASS", "面试通过", "首次面试通过", "面试反馈通过"},
+            new String[]{"ACH_PLAN_CREATED", "规划制定", "首次完成职业规划", "提交职业规划"}
+        ));
+        for (int i = 1; i <= 26; i++) {
+            required.add(new String[]{
+                "ACH_EXTRA_" + String.format("%02d", i),
+                "拓展成就" + i,
+                "系统拓展成就项" + i,
+                "系统事件触发"
+            });
+        }
+        for (String[] definitionData : required) {
+            String code = definitionData[0];
             if (!achievementDefinitionRepository.existsByCode(code)) {
                 AchievementDefinition definition = new AchievementDefinition();
                 definition.setCode(code);
-                definition.setName("成就" + i);
-                definition.setDescription("第" + i + "个系统成就");
-                definition.setTriggerCondition("系统事件触发");
+                definition.setName(definitionData[1]);
+                definition.setDescription(definitionData[2]);
+                definition.setTriggerCondition(definitionData[3]);
                 achievementDefinitionRepository.save(definition);
             }
         }
@@ -460,14 +470,35 @@ public class MilestoneService {
     private byte[] simplePdf(String text) {
         String escaped = text.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)");
         String stream = "BT /F1 12 Tf 50 750 Td (" + escaped.replace("\n", ") Tj T* (") + ") Tj ET";
-        String pdf = "%PDF-1.4\n"
-            + "1 0 obj<< /Type /Catalog /Pages 2 0 R >>endobj\n"
-            + "2 0 obj<< /Type /Pages /Kids [3 0 R] /Count 1 >>endobj\n"
-            + "3 0 obj<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources<< /Font<< /F1 5 0 R>>>> >>endobj\n"
-            + "4 0 obj<< /Length " + stream.length() + " >>stream\n" + stream + "\nendstream endobj\n"
-            + "5 0 obj<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>endobj\n"
-            + "xref\n0 6\n0000000000 65535 f \n"
-            + "trailer<< /Size 6 /Root 1 0 R >>\nstartxref\n0\n%%EOF";
-        return pdf.getBytes(StandardCharsets.UTF_8);
+        List<String> objects = List.of(
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
+            "<< /Length " + stream.getBytes(StandardCharsets.UTF_8).length + " >>\nstream\n" + stream + "\nendstream",
+            "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"
+        );
+        StringBuilder pdf = new StringBuilder("%PDF-1.4\n");
+        int byteOffset = "%PDF-1.4\n".getBytes(StandardCharsets.UTF_8).length;
+        List<Integer> offsets = new ArrayList<>();
+        offsets.add(0);
+        for (int i = 0; i < objects.size(); i++) {
+            offsets.add(byteOffset);
+            String objectSection = (i + 1) + " 0 obj\n" + objects.get(i) + "\nendobj\n";
+            pdf.append(objectSection);
+            byteOffset += objectSection.getBytes(StandardCharsets.UTF_8).length;
+        }
+        int xrefOffset = byteOffset;
+        pdf.append("xref\n")
+            .append("0 ").append(objects.size() + 1).append("\n")
+            .append("0000000000 65535 f \n");
+        for (int i = 1; i < offsets.size(); i++) {
+            pdf.append(String.format("%010d 00000 n %n", offsets.get(i)));
+        }
+        pdf.append("trailer\n")
+            .append("<< /Size ").append(objects.size() + 1).append(" /Root 1 0 R >>\n")
+            .append("startxref\n")
+            .append(xrefOffset).append("\n")
+            .append("%%EOF");
+        return pdf.toString().getBytes(StandardCharsets.UTF_8);
     }
 }

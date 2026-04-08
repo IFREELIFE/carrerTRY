@@ -31,10 +31,11 @@ public class SchoolService {
         feedback.setMentor(request.getMentor());
         feedback.setComment(request.getComment());
         SchoolFeedback saved = schoolFeedbackRepository.save(feedback);
-        userAccountRepository.findByRoleAndSchoolName(com.ifreelife.carrertry.entity.UserRole.STUDENT, account.getSchoolName().trim())
-            .stream()
-            .filter(student -> student.getDisplayName().equalsIgnoreCase(request.getStudentName().trim()))
-            .findFirst()
+        userAccountRepository.findByRoleAndSchoolNameAndDisplayNameIgnoreCase(
+                com.ifreelife.carrertry.entity.UserRole.STUDENT,
+                account.getSchoolName().trim(),
+                request.getStudentName().trim()
+            )
             .flatMap(student -> studentProfileRepository.findByStudentUsername(student.getUsername()))
             .ifPresent(profile -> appendFeedbackToProfile(profile, feedback));
         return saved;
@@ -60,7 +61,13 @@ public class SchoolService {
 
     private void appendFeedbackToProfile(StudentProfile profile, SchoolFeedback feedback) {
         String previous = profile.getAiSummary() == null ? "" : profile.getAiSummary();
-        profile.setAiSummary((previous + " | 导师评语：" + feedback.getComment()).trim());
+        String merged = (previous + " | 导师评语：" + feedback.getComment()).trim();
+        int maxCodePoints = 1800;
+        if (merged.codePointCount(0, merged.length()) > maxCodePoints) {
+            int start = merged.offsetByCodePoints(0, merged.codePointCount(0, merged.length()) - maxCodePoints);
+            merged = merged.substring(start);
+        }
+        profile.setAiSummary(merged);
         String tags = profile.getPortraitTags() == null ? "" : profile.getPortraitTags();
         if (!tags.contains("导师反馈")) {
             profile.setPortraitTags((tags + ",导师反馈").replaceAll("^,", ""));
