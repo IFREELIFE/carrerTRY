@@ -302,7 +302,9 @@ public class JobService {
         try {
             return new BigDecimal(value);
         } catch (NumberFormatException ex) {
-            throw new IllegalArgumentException("Invalid " + fieldName + " at line " + lineNo);
+            throw new IllegalArgumentException(
+                "Invalid " + fieldName + " value '" + value + "' at line " + lineNo + ": " + ex.getMessage()
+            );
         }
     }
 
