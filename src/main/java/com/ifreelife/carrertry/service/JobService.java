@@ -4,12 +4,15 @@ import com.ifreelife.carrertry.dto.JobCreateRequest;
 import com.ifreelife.carrertry.dto.JobImportResult;
 import com.ifreelife.carrertry.entity.JobPosting;
 import com.ifreelife.carrertry.entity.JobStatus;
+import com.ifreelife.carrertry.entity.UserAccount;
 import com.ifreelife.carrertry.entity.neo4j.SkillNode;
 import com.ifreelife.carrertry.repository.JobPostingRepository;
+import com.ifreelife.carrertry.repository.UserAccountRepository;
 import com.ifreelife.carrertry.repository.neo4j.SkillNodeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -32,33 +35,11 @@ public class JobService {
 
     private final JobPostingRepository jobPostingRepository;
     private final SkillNodeRepository skillNodeRepository;
+    private final UserAccountRepository userAccountRepository;
 
     @Transactional
     public JobPosting create(JobCreateRequest request) {
-        validateSalaryRange(request);
-        if (isDuplicate(
-            request.getEnterpriseName(),
-            request.getTitle(),
-            request.getDepartment(),
-            request.getLocation()
-        )) {
-            throw new IllegalArgumentException("Duplicate job for same enterprise/title/department/location");
-        }
-        JobPosting jobPosting = new JobPosting();
-        jobPosting.setTitle(request.getTitle());
-        jobPosting.setDescription(request.getDescription());
-        jobPosting.setEnterpriseName(request.getEnterpriseName());
-        jobPosting.setDepartment(request.getDepartment());
-        jobPosting.setLocation(request.getLocation());
-        jobPosting.setSalaryMin(request.getSalaryMin());
-        jobPosting.setSalaryMax(request.getSalaryMax());
-        jobPosting.setExperienceRequirement(request.getExperienceRequirement());
-        jobPosting.setEducationRequirement(request.getEducationRequirement());
-        jobPosting.setSkills(request.getSkills());
-        jobPosting.setStatus(JobStatus.PENDING);
-
-        saveSkills(request.getSkills());
-        return jobPostingRepository.save(jobPosting);
+        return createInternal(request);
     }
 
     @Transactional
@@ -113,7 +94,7 @@ public class JobService {
                 if (lineNo == 1 && isExpectedHeader(line)) {
                     continue;
                 }
-                String[] cells = line.split(",", -1);
+                String[] cells = line.split(",", EXPECTED_EXCEL_COLUMN_COUNT);
                 if (cells.length < EXPECTED_EXCEL_COLUMN_COUNT) {
                     throw new IllegalArgumentException("Invalid excel row at line " + lineNo);
                 }
@@ -138,9 +119,11 @@ public class JobService {
 
     public Page<JobPosting> listEnterpriseJobs(String enterpriseName, int page, int size) {
         PageRequest pageRequest = PageRequest.of(page, size);
+        String currentEnterpriseName = loadCurrentEnterpriseName();
         if (enterpriseName == null || enterpriseName.isBlank()) {
-            return jobPostingRepository.findAll(pageRequest);
+            return jobPostingRepository.findByEnterpriseNameContainingIgnoreCase(currentEnterpriseName, pageRequest);
         }
+        ensureEnterpriseScope(enterpriseName);
         return jobPostingRepository.findByEnterpriseNameContainingIgnoreCase(enterpriseName, pageRequest);
     }
 
@@ -172,6 +155,16 @@ public class JobService {
     }
 
     private JobPosting createInternal(JobCreateRequest request) {
+        validateSalaryRange(request);
+        ensureEnterpriseScope(request.getEnterpriseName());
+        if (isDuplicate(
+            request.getEnterpriseName(),
+            request.getTitle(),
+            request.getDepartment(),
+            request.getLocation()
+        )) {
+            throw new IllegalArgumentException("Duplicate job for same enterprise/title/department/location");
+        }
         JobPosting jobPosting = new JobPosting();
         jobPosting.setTitle(request.getTitle());
         jobPosting.setDescription(request.getDescription());
@@ -218,6 +211,23 @@ public class JobService {
 
     private boolean isExpectedHeader(String line) {
         return line.trim().toLowerCase().replace(" ", "").equals(EXPECTED_HEADER);
+    }
+
+    private void ensureEnterpriseScope(String enterpriseName) {
+        String currentEnterpriseName = loadCurrentEnterpriseName();
+        if (!currentEnterpriseName.equalsIgnoreCase(enterpriseName.trim())) {
+            throw new IllegalArgumentException("enterpriseName does not match current enterprise account");
+        }
+    }
+
+    private String loadCurrentEnterpriseName() {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        UserAccount account = userAccountRepository.findByUsername(username)
+            .orElseThrow(() -> new IllegalArgumentException("Current user not found"));
+        if (account.getEnterpriseName() == null || account.getEnterpriseName().isBlank()) {
+            throw new IllegalArgumentException("Current account has no enterprise binding");
+        }
+        return account.getEnterpriseName().trim();
     }
 
     private BigDecimal parseDecimal(String value, int lineNo) {
