@@ -17,6 +17,8 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class MilestoneService {
+    private static final int STUDENT_HOME_PAGE_SIZE = 15;
+    private static final int MAX_ACCEPTANCE_STEP = 12;
     private static final List<String> MBTI_TYPES = List.of(
         "INTJ", "INTP", "ENTJ", "ENTP", "INFJ", "INFP", "ENFJ", "ENFP",
         "ISTJ", "ISFJ", "ESTJ", "ESFJ", "ISTP", "ISFP", "ESTP", "ESFP"
@@ -112,8 +114,10 @@ public class MilestoneService {
     }
 
     public Page<JobPosting> studentHomeJobs(int page) {
-        int sanitizedPage = Math.max(0, page);
-        return jobPostingRepository.findByStatus(JobStatus.APPROVED, PageRequest.of(sanitizedPage, 15));
+        if (page < 0) {
+            throw new IllegalArgumentException("page must be >= 0");
+        }
+        return jobPostingRepository.findByStatus(JobStatus.APPROVED, PageRequest.of(page, STUDENT_HOME_PAGE_SIZE));
     }
 
     public boolean canStudentApply() {
@@ -403,8 +407,8 @@ public class MilestoneService {
 
     @Transactional
     public AcceptanceChecklistItem updateAcceptance(Integer stepNo, String itemName, boolean doneFlag, String note) {
-        if (stepNo == null || stepNo < 1 || stepNo > 12) {
-            throw new IllegalArgumentException("stepNo must be in [1, 12]");
+        if (stepNo == null || stepNo < 1 || stepNo > MAX_ACCEPTANCE_STEP) {
+            throw new IllegalArgumentException("stepNo must be in [1, " + MAX_ACCEPTANCE_STEP + "]");
         }
         AcceptanceChecklistItem item = new AcceptanceChecklistItem();
         item.setStepNo(stepNo);
@@ -419,8 +423,8 @@ public class MilestoneService {
         if (stepNo == null) {
             return acceptanceChecklistItemRepository.findAll();
         }
-        if (stepNo < 1 || stepNo > 12) {
-            throw new IllegalArgumentException("stepNo must be in [1, 12]");
+        if (stepNo < 1 || stepNo > MAX_ACCEPTANCE_STEP) {
+            throw new IllegalArgumentException("stepNo must be in [1, " + MAX_ACCEPTANCE_STEP + "]");
         }
         return acceptanceChecklistItemRepository.findByStepNoOrderByIdAsc(stepNo);
     }
