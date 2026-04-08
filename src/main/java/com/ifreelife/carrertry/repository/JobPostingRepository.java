@@ -13,6 +13,8 @@ public interface JobPostingRepository extends JpaRepository<JobPosting, Long> {
 
     Page<JobPosting> findByStatus(JobStatus status, Pageable pageable);
 
+    List<JobPosting> findByEnterpriseNameIgnoreCase(String enterpriseName);
+
     Page<JobPosting> findByEnterpriseNameContainingIgnoreCase(String enterpriseName, Pageable pageable);
 
     boolean existsByEnterpriseNameAndTitleAndDepartmentAndLocation(

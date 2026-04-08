@@ -15,6 +15,8 @@ public interface StudentApplicationRepository extends JpaRepository<StudentAppli
 
     List<StudentApplication> findByStatusOrderByAppliedAtDesc(ApplicationStatus status);
 
+    List<StudentApplication> findByJobIdInOrderByAppliedAtDesc(List<Long> jobIds);
+
     List<StudentApplication> findByTeacherCommentSnapshotContainingIgnoreCaseOrResumeSummaryContainingIgnoreCaseOrderByAppliedAtDesc(
         String teacherCommentKeyword,
         String resumeKeyword
