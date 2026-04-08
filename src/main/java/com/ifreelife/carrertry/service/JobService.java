@@ -30,6 +30,7 @@ import java.util.Set;
 @Service
 @RequiredArgsConstructor
 public class JobService {
+    private static final int MAX_PAGE_SIZE = 100;
     private static final int EXPECTED_EXCEL_COLUMN_COUNT = 9;
     private static final int MAX_DECIMAL_INPUT_LENGTH = 32;
     private static final String[] EXPECTED_HEADER_COLUMNS = {
@@ -132,7 +133,7 @@ public class JobService {
     }
 
     public Page<JobPosting> listEnterpriseJobs(String enterpriseName, int page, int size) {
-        PageRequest pageRequest = PageRequest.of(page, size);
+        PageRequest pageRequest = safePageRequest(page, size);
         String currentEnterpriseName = loadCurrentEnterpriseName();
         if (enterpriseName == null || enterpriseName.isBlank()) {
             return jobPostingRepository.findByEnterpriseNameContainingIgnoreCase(currentEnterpriseName, pageRequest);
@@ -146,7 +147,7 @@ public class JobService {
     }
 
     public Page<JobPosting> listApprovedJobs(int page, int size) {
-        return jobPostingRepository.findByStatus(JobStatus.APPROVED, PageRequest.of(page, size));
+        return jobPostingRepository.findByStatus(JobStatus.APPROVED, safePageRequest(page, size));
     }
 
     public List<JobPosting> listAllJobs() {
@@ -310,6 +311,16 @@ public class JobService {
                 "Invalid input for field '" + fieldName + "' at line " + lineNo + ": must be a valid decimal number."
             );
         }
+    }
+
+    private PageRequest safePageRequest(int page, int size) {
+        if (page < 0) {
+            throw new IllegalArgumentException("page must be >= 0");
+        }
+        if (size < 1 || size > MAX_PAGE_SIZE) {
+            throw new IllegalArgumentException("size must be in [1, " + MAX_PAGE_SIZE + "]");
+        }
+        return PageRequest.of(page, size);
     }
 
     private void saveSkills(String rawSkills) {

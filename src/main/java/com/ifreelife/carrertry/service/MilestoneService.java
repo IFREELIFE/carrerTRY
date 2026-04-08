@@ -17,7 +17,8 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class MilestoneService {
-
+    private static final int STUDENT_HOME_PAGE_SIZE = 15;
+    private static final int MAX_ACCEPTANCE_STEP = 12;
     private static final List<String> MBTI_TYPES = List.of(
         "INTJ", "INTP", "ENTJ", "ENTP", "INFJ", "INFP", "ENFJ", "ENFP",
         "ISTJ", "ISFJ", "ESTJ", "ESFJ", "ISTP", "ISFP", "ESTP", "ESFP"
@@ -113,7 +114,10 @@ public class MilestoneService {
     }
 
     public Page<JobPosting> studentHomeJobs(int page) {
-        return jobPostingRepository.findByStatus(JobStatus.APPROVED, PageRequest.of(page, 15));
+        if (page < 0) {
+            throw new IllegalArgumentException("page must be >= 0");
+        }
+        return jobPostingRepository.findByStatus(JobStatus.APPROVED, PageRequest.of(page, STUDENT_HOME_PAGE_SIZE));
     }
 
     public boolean canStudentApply() {
@@ -200,6 +204,7 @@ public class MilestoneService {
         }
         StudentApplication application = studentApplicationRepository.findById(applicationId)
             .orElseThrow(() -> new IllegalArgumentException("Application not found"));
+        verifyEnterpriseOwnsApplication(application, enterprise);
         application.setStatus(ApplicationStatus.INTERVIEW_NOTIFIED);
         application.setInterviewNotice(notice.trim());
         studentApplicationRepository.save(application);
@@ -220,6 +225,7 @@ public class MilestoneService {
         }
         StudentApplication application = studentApplicationRepository.findById(applicationId)
             .orElseThrow(() -> new IllegalArgumentException("Application not found"));
+        verifyEnterpriseOwnsApplication(application, enterprise);
         application.setInterviewFeedback(feedback.trim());
         application.setStatus(passed ? ApplicationStatus.INTERVIEW_COMPLETED : ApplicationStatus.REJECTED);
         if (passed) {
@@ -229,17 +235,31 @@ public class MilestoneService {
     }
 
     public List<StudentApplication> enterpriseApplications() {
-        currentUser();
-        return studentApplicationRepository.findAll();
+        UserAccount enterprise = currentUser();
+        if (enterprise.getRole() != UserRole.ENTERPRISE) {
+            throw new IllegalArgumentException("Only enterprise can view applications");
+        }
+        List<Long> ownedJobIds = ownedJobIds(enterprise.getEnterpriseName());
+        if (ownedJobIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return studentApplicationRepository.findByJobIdInOrderByAppliedAtDesc(ownedJobIds);
     }
 
     public List<StudentApplication> intelligentScreening(String keyword) {
+        UserAccount enterprise = currentUser();
+        if (enterprise.getRole() != UserRole.ENTERPRISE) {
+            throw new IllegalArgumentException("Only enterprise can view applications");
+        }
+        List<Long> ownedJobIds = ownedJobIds(enterprise.getEnterpriseName());
+        if (ownedJobIds.isEmpty()) {
+            return Collections.emptyList();
+        }
         String key = keyword == null ? "" : keyword.trim().toLowerCase();
         if (key.isEmpty()) {
-            return studentApplicationRepository.findAll();
+            return studentApplicationRepository.findByJobIdInOrderByAppliedAtDesc(ownedJobIds);
         }
-        return studentApplicationRepository
-            .findByTeacherCommentSnapshotContainingIgnoreCaseOrResumeSummaryContainingIgnoreCaseOrderByAppliedAtDesc(key, key);
+        return studentApplicationRepository.searchByJobIdsAndKeyword(ownedJobIds, key);
     }
 
     @Transactional
@@ -387,6 +407,9 @@ public class MilestoneService {
 
     @Transactional
     public AcceptanceChecklistItem updateAcceptance(Integer stepNo, String itemName, boolean doneFlag, String note) {
+        if (stepNo == null || stepNo < 1 || stepNo > MAX_ACCEPTANCE_STEP) {
+            throw new IllegalArgumentException("stepNo must be in [1, " + MAX_ACCEPTANCE_STEP + "]");
+        }
         AcceptanceChecklistItem item = new AcceptanceChecklistItem();
         item.setStepNo(stepNo);
         item.setItemName(itemName.trim());
@@ -399,6 +422,9 @@ public class MilestoneService {
     public List<AcceptanceChecklistItem> listAcceptance(Integer stepNo) {
         if (stepNo == null) {
             return acceptanceChecklistItemRepository.findAll();
+        }
+        if (stepNo < 1 || stepNo > MAX_ACCEPTANCE_STEP) {
+            throw new IllegalArgumentException("stepNo must be in [1, " + MAX_ACCEPTANCE_STEP + "]");
         }
         return acceptanceChecklistItemRepository.findByStepNoOrderByIdAsc(stepNo);
     }
@@ -421,6 +447,27 @@ public class MilestoneService {
             throw new IllegalArgumentException("Current school account has no school binding");
         }
         return school.getSchoolName().trim();
+    }
+
+    private List<Long> ownedJobIds(String enterpriseName) {
+        if (enterpriseName == null || enterpriseName.isBlank()) {
+            throw new IllegalArgumentException("Current enterprise account has no enterprise binding");
+        }
+        return jobPostingRepository.findByEnterpriseNameIgnoreCase(enterpriseName.trim())
+            .stream()
+            .map(JobPosting::getId)
+            .toList();
+    }
+
+    private void verifyEnterpriseOwnsApplication(StudentApplication application, UserAccount enterprise) {
+        if (enterprise.getEnterpriseName() == null || enterprise.getEnterpriseName().isBlank()) {
+            throw new IllegalArgumentException("Current enterprise account has no enterprise binding");
+        }
+        JobPosting job = jobPostingRepository.findById(application.getJobId())
+            .orElseThrow(() -> new IllegalArgumentException("Job not found: " + application.getJobId()));
+        if (!enterprise.getEnterpriseName().trim().equalsIgnoreCase(job.getEnterpriseName())) {
+            throw new IllegalArgumentException("No permission to operate this application");
+        }
     }
 
     private void grantAchievement(String studentUsername, String code) {
