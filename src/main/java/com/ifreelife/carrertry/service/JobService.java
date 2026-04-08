@@ -30,8 +30,17 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class JobService {
     private static final int EXPECTED_EXCEL_COLUMN_COUNT = 9;
-    private static final String EXPECTED_HEADER =
-        "title,department,location,salarymin,salarymax,experiencerequirement,educationrequirement,skills,description";
+    private static final String[] EXPECTED_HEADER_COLUMNS = {
+        "title",
+        "department",
+        "location",
+        "salarymin",
+        "salarymax",
+        "experiencerequirement",
+        "educationrequirement",
+        "skills",
+        "description"
+    };
 
     private final JobPostingRepository jobPostingRepository;
     private final SkillNodeRepository skillNodeRepository;
@@ -91,7 +100,10 @@ public class JobService {
                 if (line.isBlank()) {
                     continue;
                 }
-                if (lineNo == 1 && isExpectedHeader(line)) {
+                if (lineNo == 1) {
+                    if (!isExpectedHeader(line)) {
+                        throw new IllegalArgumentException("Missing or invalid header row in excel file");
+                    }
                     continue;
                 }
                 String[] cells = line.split(",", EXPECTED_EXCEL_COLUMN_COUNT);
@@ -218,7 +230,16 @@ public class JobService {
     }
 
     private boolean isExpectedHeader(String line) {
-        return line.trim().toLowerCase().equals(EXPECTED_HEADER);
+        String[] cells = line.split(",", EXPECTED_EXCEL_COLUMN_COUNT);
+        if (cells.length < EXPECTED_EXCEL_COLUMN_COUNT) {
+            return false;
+        }
+        for (int i = 0; i < EXPECTED_EXCEL_COLUMN_COUNT; i++) {
+            if (!cells[i].trim().toLowerCase().equals(EXPECTED_HEADER_COLUMNS[i])) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private void ensureEnterpriseScope(String enterpriseName) {
