@@ -40,6 +40,7 @@ public class MilestoneService {
     private final QualityMetricRepository qualityMetricRepository;
     private final ErrorCorrectionRecordRepository errorCorrectionRecordRepository;
     private final AcceptanceChecklistItemRepository acceptanceChecklistItemRepository;
+    private final AiTaskDispatchService aiTaskDispatchService;
 
     @Transactional
     public StudentProfile completeOnboarding(String techStack, String capabilityInfo, String mbtiType, boolean commitmentAgreed) {
@@ -366,7 +367,14 @@ public class MilestoneService {
         task.setRetryCount(Optional.ofNullable(task.getRetryCount()).orElse(0) + 1);
         task.setErrorMessage(null);
         task.setUpdatedAt(LocalDateTime.now());
-        return aiTaskRepository.save(task);
+        AiTask queued = aiTaskRepository.save(task);
+        if (!aiTaskDispatchService.dispatchRetry(queued)) {
+            queued.setTaskStatus("FAILED");
+            queued.setErrorMessage("RabbitMQ dispatch failed, please retry later");
+            queued.setUpdatedAt(LocalDateTime.now());
+            return aiTaskRepository.save(queued);
+        }
+        return queued;
     }
 
     @Transactional
