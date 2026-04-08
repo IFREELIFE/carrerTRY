@@ -1,6 +1,5 @@
 package com.ifreelife.carrertry.service;
 
-import com.ifreelife.carrertry.entity.AiTask;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.AmqpException;
@@ -23,18 +22,18 @@ public class AiTaskDispatchService {
     @Value("${app.ai.queue-name:careertry.ai.tasks}")
     private String queueName;
 
-    public boolean dispatchRetry(AiTask task) {
+    public boolean dispatchRetry(Long taskId, String taskName, Integer retryCount, LocalDateTime queuedAt) {
         Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("taskId", task.getId());
-        payload.put("taskName", task.getTaskName());
-        payload.put("taskStatus", task.getTaskStatus());
-        payload.put("retryCount", task.getRetryCount());
-        payload.put("updatedAt", DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(task.getUpdatedAt()));
+        payload.put("taskId", taskId);
+        payload.put("taskName", taskName);
+        payload.put("taskStatus", "QUEUED");
+        payload.put("retryCount", retryCount);
+        payload.put("updatedAt", DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(queuedAt));
         try {
             rabbitTemplate.convertAndSend(queueName, payload);
             return true;
         } catch (AmqpException ex) {
-            log.warn("RabbitMQ dispatch failed for task {}: {}", task.getId(), ex.getMessage());
+            log.warn("RabbitMQ dispatch failed for task {}: {}", taskId, ex.getMessage());
             return false;
         }
     }
