@@ -3,6 +3,7 @@ import EnterprisePage from './pages/EnterprisePage'
 import AdminPage from './pages/AdminPage'
 import StudentPage from './pages/StudentPage'
 import SchoolPage from './pages/SchoolPage'
+import AuthPage from './pages/AuthPage'
 
 const navStyle = { display: 'flex', gap: '12px', marginBottom: '16px' }
 
@@ -15,12 +16,14 @@ export default function App() {
         <Link to="/admin/jobs">Admin</Link>
         <Link to="/student/jobs">Student</Link>
         <Link to="/school/feedbacks">School</Link>
+        <Link to="/auth/register">Register</Link>
       </nav>
       <Routes>
         <Route path="/enterprise/*" element={<EnterprisePage />} />
         <Route path="/admin/*" element={<AdminPage />} />
         <Route path="/student/*" element={<StudentPage />} />
         <Route path="/school/*" element={<SchoolPage />} />
+        <Route path="/auth/*" element={<AuthPage />} />
         <Route path="*" element={<Navigate to="/enterprise/jobs" replace />} />
       </Routes>
     </main>

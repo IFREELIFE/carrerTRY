@@ -6,5 +6,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
 public interface SchoolFeedbackRepository extends JpaRepository<SchoolFeedback, Long> {
-    List<SchoolFeedback> findByStudentName(String studentName);
+    List<SchoolFeedback> findBySchoolNameAndStudentNameOrderByCreatedAtDesc(String schoolName, String studentName);
 }

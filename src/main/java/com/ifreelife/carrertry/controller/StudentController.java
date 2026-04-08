@@ -27,13 +27,18 @@ public class StudentController {
 
     @GetMapping("/jobs/{id}")
     public JobPosting jobDetail(@PathVariable Long id) {
-        return jobService.getById(id);
+        return jobService.getApprovedById(id);
     }
 
     @PostMapping("/applications")
     @ResponseStatus(HttpStatus.CREATED)
     public StudentApplication apply(@RequestBody @Valid ApplyRequest request) {
         return studentService.apply(request);
+    }
+
+    @GetMapping("/applications")
+    public List<StudentApplication> myApplications() {
+        return studentService.listMyApplications();
     }
 
     @GetMapping("/matches")

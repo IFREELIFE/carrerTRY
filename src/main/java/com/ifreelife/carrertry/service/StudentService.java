@@ -2,10 +2,12 @@ package com.ifreelife.carrertry.service;
 
 import com.ifreelife.carrertry.dto.ApplyRequest;
 import com.ifreelife.carrertry.entity.JobPosting;
-import com.ifreelife.carrertry.entity.JobStatus;
 import com.ifreelife.carrertry.entity.StudentApplication;
+import com.ifreelife.carrertry.entity.UserAccount;
 import com.ifreelife.carrertry.repository.StudentApplicationRepository;
+import com.ifreelife.carrertry.repository.UserAccountRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,18 +19,26 @@ public class StudentService {
 
     private final StudentApplicationRepository studentApplicationRepository;
     private final JobService jobService;
+    private final UserAccountRepository userAccountRepository;
 
     @Transactional
     public StudentApplication apply(ApplyRequest request) {
-        JobPosting jobPosting = jobService.getById(request.getJobId());
-        if (jobPosting.getStatus() != JobStatus.APPROVED) {
-            throw new IllegalStateException("Job is not open for application");
+        JobPosting jobPosting = jobService.getApprovedById(request.getJobId());
+        UserAccount account = loadCurrentStudentAccount();
+        if (studentApplicationRepository.existsByStudentUsernameAndJobId(account.getUsername(), request.getJobId())) {
+            throw new IllegalArgumentException("Already applied to this job");
         }
         StudentApplication application = new StudentApplication();
-        application.setJobId(request.getJobId());
-        application.setStudentName(request.getStudentName());
+        application.setJobId(jobPosting.getId());
+        application.setStudentUsername(account.getUsername());
+        application.setStudentName(account.getDisplayName());
         application.setResumeSummary(request.getResumeSummary());
         return studentApplicationRepository.save(application);
+    }
+
+    public List<StudentApplication> listMyApplications() {
+        UserAccount account = loadCurrentStudentAccount();
+        return studentApplicationRepository.findByStudentUsernameOrderByAppliedAtDesc(account.getUsername());
     }
 
     public List<JobPosting> matchJobs(String keywords) {
@@ -41,5 +51,11 @@ public class StudentService {
                 || j.getDescription().toLowerCase().contains(key)
                 || j.getSkills().toLowerCase().contains(key))
             .toList();
+    }
+
+    private UserAccount loadCurrentStudentAccount() {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userAccountRepository.findByUsername(username)
+            .orElseThrow(() -> new IllegalArgumentException("Student account not found for current user"));
     }
 }

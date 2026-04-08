@@ -9,7 +9,12 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @Entity
-@Table(name = "school_feedback")
+@Table(
+    name = "school_feedback",
+    indexes = {
+        @Index(name = "idx_school_feedback_school_student", columnList = "schoolName,studentName")
+    }
+)
 public class SchoolFeedback {
 
     @Id
@@ -18,6 +23,9 @@ public class SchoolFeedback {
 
     @Column(nullable = false)
     private String studentName;
+
+    @Column(nullable = false)
+    private String schoolName;
 
     @Column(nullable = false)
     private String mentor;

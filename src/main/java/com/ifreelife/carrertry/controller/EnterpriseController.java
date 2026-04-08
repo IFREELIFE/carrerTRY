@@ -2,16 +2,20 @@ package com.ifreelife.carrertry.controller;
 
 import com.ifreelife.carrertry.dto.JobCreateRequest;
 import com.ifreelife.carrertry.dto.JobImportRequest;
+import com.ifreelife.carrertry.dto.JobImportResult;
 import com.ifreelife.carrertry.entity.JobPosting;
 import com.ifreelife.carrertry.service.JobService;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
+@Validated
 @RequiredArgsConstructor
 @RequestMapping("/enterprise/jobs")
 public class EnterpriseController {
@@ -26,8 +30,26 @@ public class EnterpriseController {
 
     @PostMapping("/import")
     @ResponseStatus(HttpStatus.CREATED)
-    public List<JobPosting> importBatch(@RequestBody @Valid JobImportRequest request) {
+    public JobImportResult importBatch(@RequestBody @Valid JobImportRequest request) {
         return jobService.importBatch(request.getJobs());
+    }
+
+    @PostMapping("/import/excel")
+    @ResponseStatus(HttpStatus.CREATED)
+    public JobImportResult importExcel(
+        @RequestParam("file") MultipartFile file,
+        @RequestParam @NotBlank String enterpriseName
+    ) {
+        return jobService.importExcel(file, enterpriseName);
+    }
+
+    @GetMapping
+    public Page<JobPosting> list(
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "10") int size,
+        @RequestParam(required = false) String enterpriseName
+    ) {
+        return jobService.listEnterpriseJobs(enterpriseName, page, size);
     }
 
     @GetMapping("/{id}")

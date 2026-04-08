@@ -17,7 +17,8 @@
 - `/school/...`
 
 ## 当前已实现能力
-1. 企业端：岗位创建、岗位批量导入、岗位详情
+0. 账号基础：学生/学校/企业注册，数据库用户模型与角色鉴权
+1. 企业端：岗位完整字段创建、岗位分页列表、Excel（CSV）导入去重、岗位详情
 2. 管理端：岗位审核通过/驳回、岗位列表、AI任务监控列表
 3. 学生端：岗位浏览、岗位详情、岗位投递、岗位匹配
 4. 学校端：辅导评语录入、按学生查询评语
@@ -35,6 +36,11 @@
 - `student/${RBAC_STUDENT_PASSWORD:Student@1234}`
 - `school/${RBAC_SCHOOL_PASSWORD:School@1234}`
 
+注册接口（免登录）：
+- `POST /auth/register/student`（邮箱+学校绑定）
+- `POST /auth/register/school`（仅 `.edu` / `.edu.cn` 邮箱）
+- `POST /auth/register/enterprise`（企业三要素校验接口已预留）
+
 ## 运行
 ```bash
 mvn spring-boot:run
@@ -51,6 +57,24 @@ npm run dev
 - `/admin/...`
 - `/student/...`
 - `/school/...`
+- `/auth/register`
+
+## 企业岗位接口（第2步）
+- `POST /enterprise/jobs`：创建岗位（名称、部门、地点、薪资区间、经验、学历、技能、描述、状态）
+- `GET /enterprise/jobs?page=0&size=10&enterpriseName=...`：企业岗位分页列表
+- `POST /enterprise/jobs/import`：JSON批量导入（同企业+岗位+部门+地点去重）
+- `POST /enterprise/jobs/import/excel`：Excel导入入口（当前支持 CSV 上传并按同规则去重）
+
+## 学生端接口（第3步）
+- `GET /student/jobs`：浏览已审核通过岗位
+- `GET /student/jobs/{id}`：查看已审核通过岗位详情
+- `GET /student/matches?keywords=...`：按关键词进行岗位匹配
+- `POST /student/applications`：投递岗位（基于当前登录学生身份写入，限制同学生重复投递同岗位）
+- `GET /student/applications`：查询当前登录学生的投递记录
+
+## 学校端接口（第4步）
+- `POST /school/feedbacks`：录入学生辅导评语（基于当前登录学校账号绑定学校）
+- `GET /school/feedbacks?studentName=...`：按学生姓名查询当前学校下的评语记录（按时间倒序）
 
 ## 配置
 可通过环境变量覆盖：
