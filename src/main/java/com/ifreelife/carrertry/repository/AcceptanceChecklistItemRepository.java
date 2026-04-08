@@ -6,5 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
 public interface AcceptanceChecklistItemRepository extends JpaRepository<AcceptanceChecklistItem, Long> {
+    List<AcceptanceChecklistItem> findAllByOrderByStepNoAscIdAsc();
+
     List<AcceptanceChecklistItem> findByStepNoOrderByIdAsc(Integer stepNo);
 }

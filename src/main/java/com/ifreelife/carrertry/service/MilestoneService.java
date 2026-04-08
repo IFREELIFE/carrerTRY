@@ -19,6 +19,7 @@ import java.util.stream.Collectors;
 public class MilestoneService {
     private static final int STUDENT_HOME_PAGE_SIZE = 15;
     private static final int MAX_ACCEPTANCE_STEP = 12;
+    private static final Set<String> AI_TASK_STATUSES = Set.of("QUEUED", "EXECUTING", "SUCCESS", "FAILED");
     private static final List<String> MBTI_TYPES = List.of(
         "INTJ", "INTP", "ENTJ", "ENTP", "INFJ", "INFP", "ENFJ", "ENFP",
         "ISTJ", "ISFJ", "ESTJ", "ESFJ", "ISTP", "ISFP", "ESTP", "ESFP"
@@ -354,7 +355,11 @@ public class MilestoneService {
         if (status == null || status.isBlank()) {
             return aiTaskRepository.findAll();
         }
-        return aiTaskRepository.findByTaskStatusOrderByUpdatedAtDesc(status.trim().toUpperCase());
+        String normalizedStatus = status.trim().toUpperCase();
+        if (!AI_TASK_STATUSES.contains(normalizedStatus)) {
+            throw new IllegalArgumentException("status must be one of QUEUED/EXECUTING/SUCCESS/FAILED");
+        }
+        return aiTaskRepository.findByTaskStatusOrderByUpdatedAtDesc(normalizedStatus);
     }
 
     @Transactional
@@ -430,7 +435,7 @@ public class MilestoneService {
 
     public List<AcceptanceChecklistItem> listAcceptance(Integer stepNo) {
         if (stepNo == null) {
-            return acceptanceChecklistItemRepository.findAll();
+            return acceptanceChecklistItemRepository.findAllByOrderByStepNoAscIdAsc();
         }
         if (stepNo < 1 || stepNo > MAX_ACCEPTANCE_STEP) {
             throw new IllegalArgumentException("stepNo must be in [1, " + MAX_ACCEPTANCE_STEP + "]");
