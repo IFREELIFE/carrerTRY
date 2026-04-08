@@ -18,7 +18,7 @@
 
 ## 当前已实现能力
 0. 账号基础：学生/学校/企业注册，数据库用户模型与角色鉴权
-1. 企业端：岗位创建、岗位批量导入、岗位详情
+1. 企业端：岗位完整字段创建、岗位分页列表、Excel（CSV）导入去重、岗位详情
 2. 管理端：岗位审核通过/驳回、岗位列表、AI任务监控列表
 3. 学生端：岗位浏览、岗位详情、岗位投递、岗位匹配
 4. 学校端：辅导评语录入、按学生查询评语
@@ -58,6 +58,12 @@ npm run dev
 - `/student/...`
 - `/school/...`
 - `/auth/register`
+
+## 企业岗位接口（第2步）
+- `POST /enterprise/jobs`：创建岗位（名称、部门、地点、薪资区间、经验、学历、技能、描述、状态）
+- `GET /enterprise/jobs?page=0&size=10&enterpriseName=...`：企业岗位分页列表
+- `POST /enterprise/jobs/import`：JSON批量导入（同企业+岗位+部门+地点去重）
+- `POST /enterprise/jobs/import/excel`：Excel导入入口（当前支持 CSV 上传并按同规则去重）
 
 ## 配置
 可通过环境变量覆盖：
