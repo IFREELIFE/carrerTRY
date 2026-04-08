@@ -205,9 +205,7 @@ public class MilestoneService {
         if (enterprise.getRole() != UserRole.ENTERPRISE) {
             throw new IllegalArgumentException("Only enterprise can send interview notice");
         }
-        if (notice == null || notice.isBlank()) {
-            throw new IllegalArgumentException("Interview notice cannot be blank");
-        }
+        String normalizedNotice = requireNonBlank(notice, "Interview notice");
         StudentApplication application = studentApplicationRepository.findById(applicationId)
             .orElseThrow(() -> new IllegalArgumentException("Application not found"));
         verifyEnterpriseOwnsApplication(application, enterprise);
@@ -215,11 +213,11 @@ public class MilestoneService {
             throw new IllegalArgumentException("Interview notice can only be sent for APPLIED applications");
         }
         application.setStatus(ApplicationStatus.INTERVIEW_NOTIFIED);
-        application.setInterviewNotice(notice.trim());
+        application.setInterviewNotice(normalizedNotice);
         studentApplicationRepository.save(application);
         SystemNotice noticeRecord = new SystemNotice();
         noticeRecord.setTitle("面试通知");
-        noticeRecord.setContent(notice.trim());
+        noticeRecord.setContent(normalizedNotice);
         noticeRecord.setNoticeType("INTERVIEW");
         noticeRecord.setAudienceRole("STUDENT");
         systemNoticeRepository.save(noticeRecord);
@@ -232,16 +230,14 @@ public class MilestoneService {
         if (enterprise.getRole() != UserRole.ENTERPRISE) {
             throw new IllegalArgumentException("Only enterprise can submit interview feedback");
         }
-        if (feedback == null || feedback.isBlank()) {
-            throw new IllegalArgumentException("Interview feedback cannot be blank");
-        }
+        String normalizedFeedback = requireNonBlank(feedback, "Interview feedback");
         StudentApplication application = studentApplicationRepository.findById(applicationId)
             .orElseThrow(() -> new IllegalArgumentException("Application not found"));
         verifyEnterpriseOwnsApplication(application, enterprise);
         if (application.getStatus() != ApplicationStatus.INTERVIEW_NOTIFIED) {
             throw new IllegalArgumentException("Interview feedback can only be submitted after interview notice");
         }
-        application.setInterviewFeedback(feedback.trim());
+        application.setInterviewFeedback(normalizedFeedback);
         application.setStatus(passed ? ApplicationStatus.INTERVIEW_COMPLETED : ApplicationStatus.REJECTED);
         if (passed) {
             grantAchievement(application.getStudentUsername(), "ACH_INTERVIEW_PASS");
@@ -320,12 +316,8 @@ public class MilestoneService {
         if (user.getRole() != UserRole.ADMIN) {
             throw new IllegalArgumentException("Only admin can publish system notices");
         }
-        if (title == null || title.isBlank()) {
-            throw new IllegalArgumentException("Notice title cannot be blank");
-        }
-        if (content == null || content.isBlank()) {
-            throw new IllegalArgumentException("Notice content cannot be blank");
-        }
+        String normalizedTitle = requireNonBlank(title, "Notice title");
+        String normalizedContent = requireNonBlank(content, "Notice content");
         if (audienceRole == null || audienceRole.isBlank()) {
             throw new IllegalArgumentException("audienceRole is required");
         }
@@ -334,8 +326,8 @@ public class MilestoneService {
             throw new IllegalArgumentException("Invalid audienceRole. Allowed values: ADMIN, ENTERPRISE, STUDENT, SCHOOL");
         }
         SystemNotice notice = new SystemNotice();
-        notice.setTitle(title.trim());
-        notice.setContent(content.trim());
+        notice.setTitle(normalizedTitle);
+        notice.setContent(normalizedContent);
         notice.setNoticeType("SYSTEM");
         notice.setAudienceRole(normalizedAudienceRole);
         return systemNoticeRepository.save(notice);
@@ -418,12 +410,8 @@ public class MilestoneService {
         if (enterprise.getRole() != UserRole.ENTERPRISE) {
             throw new IllegalArgumentException("Only enterprise can record RAG result");
         }
-        if (query == null || query.isBlank()) {
-            throw new IllegalArgumentException("query cannot be blank");
-        }
-        if (context == null || context.isBlank()) {
-            throw new IllegalArgumentException("context cannot be blank");
-        }
+        String normalizedQuery = requireNonBlank(query, "query");
+        String normalizedContext = requireNonBlank(context, "context");
         if (qualityScore == null || qualityScore < 0d || qualityScore > 1d) {
             throw new IllegalArgumentException("qualityScore must be in [0,1]");
         }
@@ -431,8 +419,8 @@ public class MilestoneService {
             throw new IllegalArgumentException("confidence must be in [0,1]");
         }
         RagRecord record = new RagRecord();
-        record.setQueryText(query.trim());
-        record.setRetrievedContext(context.trim());
+        record.setQueryText(normalizedQuery);
+        record.setRetrievedContext(normalizedContext);
         record.setQualityScore(qualityScore);
         record.setConfidence(confidence);
         record.setReleased(confidence >= 0.7d);
@@ -536,6 +524,13 @@ public class MilestoneService {
             achievement.setAchievementCode(code);
             studentAchievementRepository.save(achievement);
         }
+    }
+
+    private String requireNonBlank(String value, String fieldName) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(fieldName + " cannot be blank");
+        }
+        return value.trim();
     }
 
     private int scoreByContains(String target, String source) {
