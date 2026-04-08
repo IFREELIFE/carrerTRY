@@ -291,8 +291,11 @@ public class JobService {
     }
 
     private BigDecimal parseDecimal(String value, int lineNo) {
-        if (value == null || value.isBlank() || value.length() > MAX_DECIMAL_INPUT_LENGTH) {
-            throw new IllegalArgumentException("Invalid salary value at line " + lineNo);
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("Salary value is required at line " + lineNo);
+        }
+        if (value.length() > MAX_DECIMAL_INPUT_LENGTH) {
+            throw new IllegalArgumentException("Salary value exceeds maximum length at line " + lineNo);
         }
         try {
             return new BigDecimal(value);

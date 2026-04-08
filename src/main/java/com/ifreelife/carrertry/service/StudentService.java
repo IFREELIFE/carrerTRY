@@ -23,13 +23,13 @@ public class StudentService {
 
     @Transactional
     public StudentApplication apply(ApplyRequest request) {
-        jobService.getApprovedById(request.getJobId());
+        JobPosting jobPosting = jobService.getApprovedById(request.getJobId());
         UserAccount account = loadCurrentStudentAccount();
         if (studentApplicationRepository.existsByStudentUsernameAndJobId(account.getUsername(), request.getJobId())) {
             throw new IllegalArgumentException("Already applied to this job");
         }
         StudentApplication application = new StudentApplication();
-        application.setJobId(request.getJobId());
+        application.setJobId(jobPosting.getId());
         application.setStudentUsername(account.getUsername());
         application.setStudentName(account.getDisplayName());
         application.setResumeSummary(request.getResumeSummary());
