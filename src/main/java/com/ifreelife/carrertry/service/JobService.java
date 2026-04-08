@@ -303,7 +303,7 @@ public class JobService {
             return new BigDecimal(value);
         } catch (NumberFormatException ex) {
             throw new IllegalArgumentException(
-                "Invalid value '" + value + "' for field '" + fieldName + "' at line " + lineNo + ": must be a valid decimal number."
+                "Invalid input for field '" + fieldName + "' at line " + lineNo + ": must be a valid decimal number."
             );
         }
     }
