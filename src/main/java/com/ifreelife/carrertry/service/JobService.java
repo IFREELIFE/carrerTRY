@@ -314,9 +314,13 @@ public class JobService {
     }
 
     private PageRequest safePageRequest(int page, int size) {
-        int sanitizedPage = Math.max(0, page);
-        int sanitizedSize = Math.max(1, Math.min(MAX_PAGE_SIZE, size));
-        return PageRequest.of(sanitizedPage, sanitizedSize);
+        if (page < 0) {
+            throw new IllegalArgumentException("page must be >= 0");
+        }
+        if (size < 1 || size > MAX_PAGE_SIZE) {
+            throw new IllegalArgumentException("size must be in [1, " + MAX_PAGE_SIZE + "]");
+        }
+        return PageRequest.of(page, size);
     }
 
     private void saveSkills(String rawSkills) {

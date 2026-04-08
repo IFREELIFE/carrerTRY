@@ -255,13 +255,7 @@ public class MilestoneService {
         if (key.isEmpty()) {
             return studentApplicationRepository.findByJobIdInOrderByAppliedAtDesc(ownedJobIds);
         }
-        return studentApplicationRepository
-            .findByJobIdInAndTeacherCommentSnapshotContainingIgnoreCaseOrJobIdInAndResumeSummaryContainingIgnoreCaseOrderByAppliedAtDesc(
-                ownedJobIds,
-                key,
-                ownedJobIds,
-                key
-            );
+        return studentApplicationRepository.searchByJobIdsAndKeyword(ownedJobIds, key);
     }
 
     @Transactional
