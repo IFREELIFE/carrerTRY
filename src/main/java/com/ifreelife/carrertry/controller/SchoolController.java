@@ -50,7 +50,20 @@ public class SchoolController {
     }
 
     @GetMapping("/students")
-    public List<Map<String, Object>> students() {
-        return milestoneService.schoolStudentsWithProfile();
+    public Map<String, Object> students(
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "10") int size
+    ) {
+        return milestoneService.schoolStudentsWithProfile(page, size);
+    }
+
+    @GetMapping("/students/{username}")
+    public Map<String, Object> studentDetail(@PathVariable String username) {
+        return milestoneService.schoolStudentDetail(username);
+    }
+
+    @GetMapping("/dashboard")
+    public Map<String, Object> dashboard() {
+        return milestoneService.schoolDashboard();
     }
 }

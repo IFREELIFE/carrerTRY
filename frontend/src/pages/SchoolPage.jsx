@@ -11,6 +11,10 @@ export default function SchoolPage() {
   const [mentorForm, setMentorForm] = useState({ name: '', expertise: '', phone: '', availableTime: '', location: '' })
   const [mentors, setMentors] = useState([])
   const [students, setStudents] = useState([])
+  const [studentPage, setStudentPage] = useState(0)
+  const [studentTotalPages, setStudentTotalPages] = useState(0)
+  const [studentDetail, setStudentDetail] = useState(null)
+  const [dashboard, setDashboard] = useState(null)
 
   async function submitFeedback(e) {
     e.preventDefault()
@@ -88,16 +92,46 @@ export default function SchoolPage() {
     }
   }
 
-  async function loadStudents() {
+  async function loadStudents(page = studentPage) {
     setMessage('加载学生画像中...')
     try {
-      const response = await fetch(`${API_BASE}/school/students`)
+      const response = await fetch(`${API_BASE}/school/students?page=${page}&size=10`)
       const data = await response.json()
       if (!response.ok) throw new Error(data.message ?? '加载失败')
-      setStudents(Array.isArray(data) ? data : [])
+      setStudents(Array.isArray(data.content) ? data.content : [])
+      setStudentPage(data.number ?? page)
+      setStudentTotalPages(data.totalPages ?? 0)
       setMessage('学生画像加载成功')
     } catch (err) {
       setMessage(`加载失败：${err.message}`)
+    }
+  }
+
+  async function loadStudentDetail(username) {
+    setMessage('加载学生详情中...')
+    try {
+      const response = await fetch(`${API_BASE}/school/students/${encodeURIComponent(username)}`)
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.message ?? '加载详情失败')
+      setStudentDetail(data)
+      setMessage('学生详情加载成功')
+    } catch (err) {
+      setStudentDetail(null)
+      setMessage(`加载详情失败：${err.message}`)
+    }
+  }
+
+  async function loadDashboard() {
+    setMessage('加载学校仪表盘中...')
+    try {
+      const response = await fetch(`${API_BASE}/school/dashboard`)
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.message ?? '加载仪表盘失败')
+      setDashboard(data)
+      setMessage('学校仪表盘加载成功')
+    } catch (err) {
+      setDashboard(null)
+      setMessage(`加载仪表盘失败：${err.message}`)
     }
   }
 
@@ -161,13 +195,38 @@ export default function SchoolPage() {
         </ul>
       </section>
       <section style={{ border: '1px solid #ddd', padding: 12, marginTop: 12 }}>
-        <h3>学生列表与画像查看</h3>
-        <button type="button" onClick={loadStudents}>加载学生画像</button>
+        <h3>学校仪表盘</h3>
+        <button type="button" onClick={loadDashboard}>加载仪表盘</button>
+        <p>学生总数：{dashboard?.totalStudents ?? 0}，平均评分：{dashboard?.averageScore ?? 0}</p>
+        <h4>就业意向画像</h4>
         <ul>
-          {students.map((s, idx) => (
-            <li key={`${s.username}-${idx}`}>{s.username} | {s.displayName} | {s.portraitTags} | {s.aiSummary}</li>
+          {(dashboard?.intentionPortrait ?? []).map((item) => (
+            <li key={item.career}>{item.career}：{item.count}</li>
           ))}
         </ul>
+        <h4>评分扇形图数据</h4>
+        <ul>
+          {(dashboard?.scoreFanChart ?? []).map((item) => (
+            <li key={item.range}>{item.range}：{item.count}</li>
+          ))}
+        </ul>
+      </section>
+      <section style={{ border: '1px solid #ddd', padding: 12, marginTop: 12 }}>
+        <h3>学生列表与画像查看</h3>
+        <button type="button" onClick={() => loadStudents(Math.max(studentPage - 1, 0))}>上一页</button>
+        <button type="button" onClick={() => loadStudents(Math.min(studentPage + 1, Math.max(studentTotalPages - 1, 0)))} style={{ marginLeft: 8 }}>下一页</button>
+        <button type="button" onClick={() => loadStudents(studentPage)} style={{ marginLeft: 8 }}>刷新</button>
+        <p>当前第 {studentPage + 1} / {Math.max(studentTotalPages, 1)} 页</p>
+        <ul>
+          {students.map((s, idx) => (
+            <li key={`${s.username}-${idx}`}>
+              {s.username} | {s.displayName} | {s.portraitTags} | {s.aiSummary}
+              <button type="button" onClick={() => loadStudentDetail(s.username)} style={{ marginLeft: 8 }}>查看详情</button>
+            </li>
+          ))}
+        </ul>
+        <h4>学生详情（画像/简历/意向岗位）</h4>
+        <pre>{studentDetail ? JSON.stringify(studentDetail, null, 2) : '未选择学生'}</pre>
       </section>
       <p>{message}</p>
     </section>

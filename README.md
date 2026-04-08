@@ -99,7 +99,9 @@ npm run dev
 - `POST /school/feedbacks`：录入学生辅导评语（基于当前登录学校账号绑定学校）
 - `GET /school/feedbacks?studentName=...`：按学生姓名查询当前学校下的评语记录（按时间倒序）
 - `POST /school/mentors` / `GET /school/mentors`：老师管理
-- `GET /school/students`：学生列表与画像查看
+- `GET /school/students?page=0&size=10`：学生分页列表与画像摘要
+- `GET /school/students/{username}`：学生详情（基础信息、12维画像、简历、意向岗位）
+- `GET /school/dashboard`：学校仪表盘（就业意向画像、评分分布）
 
 ## 企业端流程扩展（第8/11步）
 - `GET /enterprise/jobs/applications`：投递管理

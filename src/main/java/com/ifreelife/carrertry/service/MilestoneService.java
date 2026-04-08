@@ -247,21 +247,160 @@ public class MilestoneService {
         return studentMentorAppointmentRepository.findByStudentUsernameOrderByCreatedAtDesc(student.getUsername());
     }
 
-    public List<Map<String, Object>> schoolStudentsWithProfile() {
+    public Map<String, Object> schoolStudentsWithProfile(int page, int size) {
         UserAccount school = currentUser();
-        List<UserAccount> students = userAccountRepository.findByRoleAndSchoolName(UserRole.STUDENT, requireSchoolName(school));
-        return students.stream().map(student -> {
+        if (school.getRole() != UserRole.SCHOOL) {
+            throw new IllegalArgumentException("Only school can view school students");
+        }
+        if (page < 0) {
+            throw new IllegalArgumentException("page must be >= 0");
+        }
+        if (size < 1 || size > 100) {
+            throw new IllegalArgumentException("size must be in [1, 100]");
+        }
+        Page<UserAccount> students = userAccountRepository.findByRoleAndSchoolName(
+            UserRole.STUDENT,
+            requireSchoolName(school),
+            PageRequest.of(page, size)
+        );
+        List<Map<String, Object>> content = students.getContent().stream().map(student -> {
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("username", student.getUsername());
             row.put("displayName", student.getDisplayName());
+            row.put("email", student.getEmail());
+            row.put("phone", student.getPhone());
             row.put("major", student.getMajor());
             row.put("onboardingCompleted", student.getOnboardingCompleted());
             studentProfileRepository.findByStudentUsername(student.getUsername()).ifPresent(profile -> {
                 row.put("portraitTags", profile.getPortraitTags());
                 row.put("aiSummary", profile.getAiSummary());
             });
+            careerPlanRepository.findByStudentUsername(student.getUsername()).ifPresent(plan -> {
+                row.put("targetCareer", plan.getTargetCareer());
+                row.put("targetCity", plan.getTargetCity());
+                row.put("matchPercent", plan.getMatchPercent());
+            });
             return row;
         }).toList();
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("content", content);
+        result.put("number", students.getNumber());
+        result.put("size", students.getSize());
+        result.put("totalElements", students.getTotalElements());
+        result.put("totalPages", students.getTotalPages());
+        result.put("first", students.isFirst());
+        result.put("last", students.isLast());
+        return result;
+    }
+
+    public Map<String, Object> schoolStudentDetail(String username) {
+        UserAccount school = currentUser();
+        if (school.getRole() != UserRole.SCHOOL) {
+            throw new IllegalArgumentException("Only school can view student detail");
+        }
+        String normalizedUsername = requireNonBlank(username, "username");
+        UserAccount student = userAccountRepository.findByUsernameAndRole(normalizedUsername, UserRole.STUDENT)
+            .orElseThrow(() -> new IllegalArgumentException("Student not found"));
+        String schoolName = requireSchoolName(school);
+        if (!schoolName.equals(student.getSchoolName() == null ? "" : student.getSchoolName().trim())) {
+            throw new IllegalArgumentException("No permission to access this student");
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        Map<String, Object> basic = new LinkedHashMap<>();
+        basic.put("username", student.getUsername());
+        basic.put("displayName", student.getDisplayName());
+        basic.put("email", student.getEmail());
+        basic.put("phone", student.getPhone());
+        basic.put("major", student.getMajor());
+        basic.put("schoolName", student.getSchoolName());
+        result.put("basicInfo", basic);
+        studentProfileRepository.findByStudentUsername(student.getUsername()).ifPresent(profile -> {
+            Map<String, Object> portrait = new LinkedHashMap<>();
+            portrait.put("mbtiType", profile.getMbtiType());
+            portrait.put("portraitVector12", parsePortraitVector(profile.getPortraitVector12()));
+            portrait.put("portraitTags", profile.getPortraitTags());
+            portrait.put("aiSummary", profile.getAiSummary());
+            result.put("portrait", portrait);
+        });
+        List<Map<String, Object>> resumes = resumeRecordRepository.findByStudentUsernameOrderByUpdatedAtDesc(student.getUsername())
+            .stream()
+            .limit(3)
+            .map(r -> {
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("id", r.getId());
+                row.put("fileName", r.getFileName());
+                row.put("aiSuggestion", r.getAiSuggestion());
+                row.put("updatedAt", r.getUpdatedAt());
+                return row;
+            })
+            .toList();
+        result.put("resumes", resumes);
+        careerPlanRepository.findByStudentUsername(student.getUsername()).ifPresent(plan -> {
+            Map<String, Object> intention = new LinkedHashMap<>();
+            intention.put("targetCareer", plan.getTargetCareer());
+            intention.put("targetCity", plan.getTargetCity());
+            intention.put("matchPercent", plan.getMatchPercent());
+            intention.put("progressPercent", plan.getProgressPercent());
+            result.put("intention", intention);
+        });
+        return result;
+    }
+
+    public Map<String, Object> schoolDashboard() {
+        UserAccount school = currentUser();
+        if (school.getRole() != UserRole.SCHOOL) {
+            throw new IllegalArgumentException("Only school can view dashboard");
+        }
+        List<UserAccount> students = userAccountRepository.findByRoleAndSchoolName(UserRole.STUDENT, requireSchoolName(school));
+        List<String> usernames = students.stream().map(UserAccount::getUsername).toList();
+        List<CareerPlan> plans = usernames.isEmpty() ? List.of() : careerPlanRepository.findByStudentUsernameIn(usernames);
+        List<StudentProfile> profiles = usernames.isEmpty() ? List.of() : studentProfileRepository.findByStudentUsernameIn(usernames);
+
+        Map<String, Long> careerDistribution = plans.stream()
+            .filter(p -> p.getTargetCareer() != null && !p.getTargetCareer().isBlank())
+            .collect(Collectors.groupingBy(CareerPlan::getTargetCareer, Collectors.counting()));
+        List<Map<String, Object>> intentionPortrait = careerDistribution.entrySet().stream()
+            .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+            .map(entry -> {
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("career", entry.getKey());
+                row.put("count", entry.getValue());
+                return row;
+            })
+            .toList();
+
+        Map<String, Integer> scoreMap = new HashMap<>();
+        for (StudentProfile profile : profiles) {
+            scoreMap.put(profile.getStudentUsername(), averagePortraitScore(profile.getPortraitVector12()));
+        }
+        for (CareerPlan plan : plans) {
+            scoreMap.putIfAbsent(plan.getStudentUsername(), safeScore(plan.getMatchPercent()));
+        }
+        int[] buckets = new int[5];
+        for (String username : usernames) {
+            int score = safeScore(scoreMap.getOrDefault(username, 0));
+            if (score < 60) buckets[0]++;
+            else if (score < 70) buckets[1]++;
+            else if (score < 80) buckets[2]++;
+            else if (score < 90) buckets[3]++;
+            else buckets[4]++;
+        }
+        List<Map<String, Object>> scoreFan = List.of(
+            Map.of("range", "0-59", "count", buckets[0]),
+            Map.of("range", "60-69", "count", buckets[1]),
+            Map.of("range", "70-79", "count", buckets[2]),
+            Map.of("range", "80-89", "count", buckets[3]),
+            Map.of("range", "90-100", "count", buckets[4])
+        );
+        int avgScore = usernames.isEmpty() ? 0 : (int) Math.round(
+            usernames.stream().mapToInt(u -> safeScore(scoreMap.getOrDefault(u, 0))).average().orElse(0.0)
+        );
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("totalStudents", usernames.size());
+        result.put("intentionPortrait", intentionPortrait);
+        result.put("scoreFanChart", scoreFan);
+        result.put("averageScore", avgScore);
+        return result;
     }
 
     @Transactional
@@ -797,6 +936,36 @@ public class MilestoneService {
             .collect(Collectors.toSet());
         long hit = parts.stream().filter(p -> target.toLowerCase().contains(p)).count();
         return (int) Math.min(100, 35 + hit * 20);
+    }
+
+    private List<Integer> parsePortraitVector(String portraitVector12) {
+        if (portraitVector12 == null || portraitVector12.isBlank()) {
+            return List.of();
+        }
+        List<Integer> values = new ArrayList<>();
+        for (String part : portraitVector12.split(",")) {
+            try {
+                values.add(safeScore(Integer.parseInt(part.trim())));
+            } catch (NumberFormatException ignored) {
+                return List.of();
+            }
+        }
+        return values;
+    }
+
+    private int averagePortraitScore(String portraitVector12) {
+        List<Integer> values = parsePortraitVector(portraitVector12);
+        if (values.isEmpty()) {
+            return 0;
+        }
+        return (int) Math.round(values.stream().mapToInt(Integer::intValue).average().orElse(0d));
+    }
+
+    private int safeScore(Integer raw) {
+        if (raw == null) {
+            return 0;
+        }
+        return Math.max(0, Math.min(100, raw));
     }
 
     private String generatePortraitVector(String techStack, String capabilityInfo) {
