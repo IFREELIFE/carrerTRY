@@ -9,7 +9,7 @@ const navStyle = { display: 'flex', gap: '12px', marginBottom: '16px' }
 export default function App() {
   return (
     <main style={{ fontFamily: 'Arial, sans-serif', padding: 24 }}>
-      <h1>carrerTRY</h1>
+      <h1>careerTRY</h1>
       <nav style={navStyle}>
         <Link to="/enterprise/jobs">Enterprise</Link>
         <Link to="/admin/jobs">Admin</Link>
