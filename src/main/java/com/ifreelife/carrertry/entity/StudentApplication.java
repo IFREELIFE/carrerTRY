@@ -33,6 +33,19 @@ public class StudentApplication {
     @Column(nullable = false)
     private String resumeSummary;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 32)
+    private ApplicationStatus status = ApplicationStatus.APPLIED;
+
+    @Column(length = 1024)
+    private String interviewNotice;
+
+    @Column(length = 2048)
+    private String interviewFeedback;
+
+    @Column(length = 1024)
+    private String teacherCommentSnapshot;
+
     @Column(nullable = false)
     private LocalDateTime appliedAt = LocalDateTime.now();
 }

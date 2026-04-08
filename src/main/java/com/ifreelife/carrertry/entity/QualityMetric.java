@@ -9,25 +9,19 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @Entity
-@Table(name = "ai_task")
-public class AiTask {
+@Table(name = "quality_metric")
+public class QualityMetric {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private String taskName;
+    @Column(nullable = false, length = 128)
+    private String metricName;
 
     @Column(nullable = false)
-    private String taskStatus;
-
-    @Column(length = 1024)
-    private String errorMessage;
+    private Double metricValue;
 
     @Column(nullable = false)
-    private Integer retryCount = 0;
-
-    @Column(nullable = false)
-    private LocalDateTime updatedAt = LocalDateTime.now();
+    private LocalDateTime snapshotTime = LocalDateTime.now();
 }

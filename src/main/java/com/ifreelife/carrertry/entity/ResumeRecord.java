@@ -9,24 +9,28 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @Entity
-@Table(name = "ai_task")
-public class AiTask {
+@Table(name = "resume_record")
+public class ResumeRecord {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private String taskName;
+    @Column(nullable = false, length = 64)
+    private String studentUsername;
 
-    @Column(nullable = false)
-    private String taskStatus;
+    @Column(nullable = false, length = 256)
+    private String fileName;
 
-    @Column(length = 1024)
-    private String errorMessage;
-
+    @Lob
     @Column(nullable = false)
-    private Integer retryCount = 0;
+    private String rawContent;
+
+    @Lob
+    private String aiSuggestion;
+
+    @Lob
+    private String beautifiedContent;
 
     @Column(nullable = false)
     private LocalDateTime updatedAt = LocalDateTime.now();
