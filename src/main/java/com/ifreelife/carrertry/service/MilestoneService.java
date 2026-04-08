@@ -357,7 +357,7 @@ public class MilestoneService {
         }
         String normalizedStatus = status.trim().toUpperCase();
         if (!AI_TASK_STATUSES.contains(normalizedStatus)) {
-            throw new IllegalArgumentException("status must be one of QUEUED/EXECUTING/SUCCESS/FAILED");
+            throw new IllegalArgumentException("Invalid task status. Allowed values: QUEUED, EXECUTING, SUCCESS, FAILED");
         }
         return aiTaskRepository.findByTaskStatusOrderByUpdatedAtDesc(normalizedStatus);
     }
