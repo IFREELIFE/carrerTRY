@@ -218,7 +218,7 @@ public class JobService {
     }
 
     private boolean isExpectedHeader(String line) {
-        return line.trim().toLowerCase().replace(" ", "").equals(EXPECTED_HEADER);
+        return line.trim().toLowerCase().equals(EXPECTED_HEADER);
     }
 
     private void ensureEnterpriseScope(String enterpriseName) {

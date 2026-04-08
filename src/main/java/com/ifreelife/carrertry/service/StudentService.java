@@ -2,7 +2,6 @@ package com.ifreelife.carrertry.service;
 
 import com.ifreelife.carrertry.dto.ApplyRequest;
 import com.ifreelife.carrertry.entity.JobPosting;
-import com.ifreelife.carrertry.entity.JobStatus;
 import com.ifreelife.carrertry.entity.StudentApplication;
 import com.ifreelife.carrertry.entity.UserAccount;
 import com.ifreelife.carrertry.repository.StudentApplicationRepository;
@@ -24,10 +23,7 @@ public class StudentService {
 
     @Transactional
     public StudentApplication apply(ApplyRequest request) {
-        JobPosting jobPosting = jobService.getApprovedById(request.getJobId());
-        if (jobPosting.getStatus() != JobStatus.APPROVED) {
-            throw new IllegalStateException("Job is not open for application");
-        }
+        jobService.getApprovedById(request.getJobId());
         UserAccount account = loadCurrentStudentAccount();
         if (studentApplicationRepository.existsByStudentUsernameAndJobId(account.getUsername(), request.getJobId())) {
             throw new IllegalArgumentException("Already applied to this job");
