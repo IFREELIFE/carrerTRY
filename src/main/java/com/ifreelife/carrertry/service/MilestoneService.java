@@ -302,7 +302,8 @@ public class MilestoneService {
         UserAccount student = userAccountRepository.findByUsernameAndRole(normalizedUsername, UserRole.STUDENT)
             .orElseThrow(() -> new IllegalArgumentException("Student not found"));
         String schoolName = requireSchoolName(school);
-        if (!schoolName.equals(student.getSchoolName() == null ? "" : student.getSchoolName().trim())) {
+        String studentSchoolName = student.getSchoolName() == null ? "" : student.getSchoolName().trim();
+        if (!Objects.equals(schoolName, studentSchoolName)) {
             throw new IllegalArgumentException("No permission to access this student");
         }
         Map<String, Object> result = new LinkedHashMap<>();
@@ -945,7 +946,8 @@ public class MilestoneService {
         List<Integer> values = new ArrayList<>();
         for (String part : portraitVector12.split(",")) {
             try {
-                values.add(safeScore(Integer.parseInt(part.trim())));
+                int parsed = Integer.parseInt(part.trim());
+                values.add(Math.max(0, Math.min(100, parsed)));
             } catch (NumberFormatException ignored) {
                 return List.of();
             }

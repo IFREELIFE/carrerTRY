@@ -213,8 +213,19 @@ export default function SchoolPage() {
       </section>
       <section style={{ border: '1px solid #ddd', padding: 12, marginTop: 12 }}>
         <h3>学生列表与画像查看</h3>
-        <button type="button" onClick={() => loadStudents(Math.max(studentPage - 1, 0))}>上一页</button>
-        <button type="button" onClick={() => loadStudents(Math.min(studentPage + 1, Math.max(studentTotalPages - 1, 0)))} style={{ marginLeft: 8 }}>下一页</button>
+        <button type="button" disabled={studentPage <= 0} onClick={() => loadStudents(Math.max(studentPage - 1, 0))}>上一页</button>
+        <button
+          type="button"
+          disabled={studentTotalPages <= 0 || studentPage >= studentTotalPages - 1}
+          onClick={() => {
+            if (studentTotalPages > 0) {
+              loadStudents(Math.min(studentPage + 1, studentTotalPages - 1))
+            }
+          }}
+          style={{ marginLeft: 8 }}
+        >
+          下一页
+        </button>
         <button type="button" onClick={() => loadStudents(studentPage)} style={{ marginLeft: 8 }}>刷新</button>
         <p>当前第 {studentPage + 1} / {Math.max(studentTotalPages, 1)} 页</p>
         <ul>
