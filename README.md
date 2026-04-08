@@ -79,6 +79,9 @@ npm run dev
 - `POST /student/applications`：投递岗位（基于当前登录学生身份写入，限制同学生重复投递同岗位）
 - `GET /student/applications`：查询当前登录学生的投递记录
 - `POST /student/onboarding`：首次必填链路提交
+- `POST /student/activity`：记录当日活跃（30秒活跃/浏览岗位/刷新简历）
+- `POST /student/check-in`：当日签到（满足活跃规则后可签到）
+- `GET /student/check-in/summary`：签到与连续签到天数摘要（含“当日活跃=当日优先”规则）
 - `GET /student/profile`：学生画像
 - `PUT /student/center`：个人中心信息编辑
 - `POST /student/resumes` / `GET /student/resumes`：简历管理

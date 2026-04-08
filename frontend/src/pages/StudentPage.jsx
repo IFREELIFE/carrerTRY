@@ -34,15 +34,55 @@ export default function StudentPage() {
   const [achievements, setAchievements] = useState([])
   const [correction, setCorrection] = useState({ wrongPoint: '', correctionAction: '', closedLoopStatus: 'OPEN' })
   const [corrections, setCorrections] = useState([])
+  const [dailySummary, setDailySummary] = useState(null)
 
   async function loadHome(page = homePage) {
     try {
       const data = await requestJson(`${API_BASE}/student/home?page=${page}`)
       setHomeJobs(data.content ?? [])
       setHomePage(data.number ?? page)
+      await requestJson(`${API_BASE}/student/activity`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ viewedJobs: true })
+      })
+      await loadDailySummary()
       setMessage('首页岗位加载成功')
     } catch (err) {
       setMessage(`首页岗位加载失败：${err.message}`)
+    }
+  }
+
+  async function recordActive30s() {
+    try {
+      const data = await requestJson(`${API_BASE}/student/activity`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ activeSeconds: 30 })
+      })
+      setDailySummary(data)
+      setMessage('已记录30秒活跃')
+    } catch (err) {
+      setMessage(`活跃记录失败：${err.message}`)
+    }
+  }
+
+  async function checkInToday() {
+    try {
+      const data = await requestJson(`${API_BASE}/student/check-in`, { method: 'POST' })
+      setDailySummary(data)
+      setMessage('签到成功')
+    } catch (err) {
+      setMessage(`签到失败：${err.message}`)
+    }
+  }
+
+  async function loadDailySummary() {
+    try {
+      const data = await requestJson(`${API_BASE}/student/check-in/summary`)
+      setDailySummary(data)
+    } catch {
+      setDailySummary(null)
     }
   }
 
@@ -228,6 +268,10 @@ export default function StudentPage() {
 
       <section style={{ border: '1px solid #ddd', padding: 12, marginBottom: 12 }}>
         <h3>首页岗位（15条分页）</h3>
+        <button onClick={loadDailySummary}>加载签到信息</button>
+        <button onClick={recordActive30s} style={{ marginLeft: 8 }}>记录30秒活跃</button>
+        <button onClick={checkInToday} style={{ marginLeft: 8 }}>今日签到</button>
+        <pre>{dailySummary ? JSON.stringify(dailySummary, null, 2) : '暂无签到数据'}</pre>
         <button onClick={() => loadHome(Math.max(homePage - 1, 0))}>上一页</button>
         <button onClick={() => loadHome(homePage + 1)} style={{ marginLeft: 8 }}>下一页</button>
         <button onClick={() => loadHome(homePage)} style={{ marginLeft: 8 }}>刷新</button>

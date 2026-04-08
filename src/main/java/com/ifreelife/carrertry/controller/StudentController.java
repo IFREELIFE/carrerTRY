@@ -77,6 +77,24 @@ public class StudentController {
         return Map.of("canApplyAndPortrait", milestoneService.canStudentApply());
     }
 
+    @PostMapping("/activity")
+    public Map<String, Object> recordActivity(@RequestBody Map<String, Object> request) {
+        int activeSeconds = Integer.parseInt(String.valueOf(request.getOrDefault("activeSeconds", "0")));
+        boolean viewedJobs = Boolean.parseBoolean(String.valueOf(request.getOrDefault("viewedJobs", false)));
+        boolean refreshedResume = Boolean.parseBoolean(String.valueOf(request.getOrDefault("refreshedResume", false)));
+        return milestoneService.recordDailyActivity(activeSeconds, viewedJobs, refreshedResume);
+    }
+
+    @PostMapping("/check-in")
+    public Map<String, Object> checkIn() {
+        return milestoneService.checkInToday();
+    }
+
+    @GetMapping("/check-in/summary")
+    public Map<String, Object> checkInSummary() {
+        return milestoneService.myDailyCheckInSummary();
+    }
+
     @GetMapping("/profile")
     public StudentProfile profile() {
         return milestoneService.myProfile();
