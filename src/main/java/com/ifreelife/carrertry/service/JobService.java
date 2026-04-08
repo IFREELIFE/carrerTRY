@@ -140,6 +140,14 @@ public class JobService {
             .orElseThrow(() -> new IllegalArgumentException("Job not found: " + id));
     }
 
+    public JobPosting getApprovedById(Long id) {
+        JobPosting job = getById(id);
+        if (job.getStatus() != JobStatus.APPROVED) {
+            throw new IllegalArgumentException("Approved job not found: " + id);
+        }
+        return job;
+    }
+
     @Transactional
     public JobPosting approve(Long id) {
         JobPosting job = getById(id);

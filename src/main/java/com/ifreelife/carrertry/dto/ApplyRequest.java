@@ -13,8 +13,5 @@ public class ApplyRequest {
     private Long jobId;
 
     @NotBlank
-    private String studentName;
-
-    @NotBlank
     private String resumeSummary;
 }

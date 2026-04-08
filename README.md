@@ -65,6 +65,13 @@ npm run dev
 - `POST /enterprise/jobs/import`：JSON批量导入（同企业+岗位+部门+地点去重）
 - `POST /enterprise/jobs/import/excel`：Excel导入入口（当前支持 CSV 上传并按同规则去重）
 
+## 学生端接口（第3步）
+- `GET /student/jobs`：浏览已审核通过岗位
+- `GET /student/jobs/{id}`：查看已审核通过岗位详情
+- `GET /student/matches?keywords=...`：按关键词进行岗位匹配
+- `POST /student/applications`：投递岗位（基于当前登录学生身份写入，限制同学生重复投递同岗位）
+- `GET /student/applications`：查询当前登录学生的投递记录
+
 ## 配置
 可通过环境变量覆盖：
 - `MYSQL_HOST` `MYSQL_PORT` `MYSQL_DB` `MYSQL_USER` `MYSQL_PASSWORD`

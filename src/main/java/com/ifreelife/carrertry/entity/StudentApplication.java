@@ -9,7 +9,12 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @Entity
-@Table(name = "student_application")
+@Table(
+    name = "student_application",
+    uniqueConstraints = {
+        @UniqueConstraint(name = "uk_student_application_student_job", columnNames = {"studentUsername", "jobId"})
+    }
+)
 public class StudentApplication {
 
     @Id
@@ -18,6 +23,9 @@ public class StudentApplication {
 
     @Column(nullable = false)
     private Long jobId;
+
+    @Column(nullable = false)
+    private String studentUsername;
 
     @Column(nullable = false)
     private String studentName;
