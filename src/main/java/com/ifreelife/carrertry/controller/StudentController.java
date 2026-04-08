@@ -79,9 +79,9 @@ public class StudentController {
 
     @PostMapping("/activity")
     public Map<String, Object> recordActivity(@RequestBody Map<String, Object> request) {
-        int activeSeconds = Integer.parseInt(String.valueOf(request.getOrDefault("activeSeconds", "0")));
-        boolean viewedJobs = Boolean.parseBoolean(String.valueOf(request.getOrDefault("viewedJobs", false)));
-        boolean refreshedResume = Boolean.parseBoolean(String.valueOf(request.getOrDefault("refreshedResume", false)));
+        int activeSeconds = parseIntField(request.get("activeSeconds"), "activeSeconds");
+        boolean viewedJobs = parseBooleanField(request.get("viewedJobs"), "viewedJobs");
+        boolean refreshedResume = parseBooleanField(request.get("refreshedResume"), "refreshedResume");
         return milestoneService.recordDailyActivity(activeSeconds, viewedJobs, refreshedResume);
     }
 
@@ -177,5 +177,36 @@ public class StudentController {
     @GetMapping("/corrections")
     public List<ErrorCorrectionRecord> corrections() {
         return milestoneService.myCorrectionRecords();
+    }
+
+    private int parseIntField(Object value, String fieldName) {
+        if (value == null) {
+            return 0;
+        }
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        try {
+            return Integer.parseInt(String.valueOf(value).trim());
+        } catch (NumberFormatException ex) {
+            throw new IllegalArgumentException(fieldName + " must be an integer");
+        }
+    }
+
+    private boolean parseBooleanField(Object value, String fieldName) {
+        if (value == null) {
+            return false;
+        }
+        if (value instanceof Boolean bool) {
+            return bool;
+        }
+        String normalized = String.valueOf(value).trim();
+        if ("true".equalsIgnoreCase(normalized)) {
+            return true;
+        }
+        if ("false".equalsIgnoreCase(normalized)) {
+            return false;
+        }
+        throw new IllegalArgumentException(fieldName + " must be true or false");
     }
 }

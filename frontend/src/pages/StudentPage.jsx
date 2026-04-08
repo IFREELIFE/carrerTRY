@@ -81,7 +81,8 @@ export default function StudentPage() {
     try {
       const data = await requestJson(`${API_BASE}/student/check-in/summary`)
       setDailySummary(data)
-    } catch {
+    } catch (err) {
+      console.warn('loadDailySummary failed', err)
       setDailySummary(null)
     }
   }
