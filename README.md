@@ -87,6 +87,8 @@ npm run dev
 - `PUT /student/center`：个人中心信息编辑
 - `POST /student/resumes` / `GET /student/resumes`：简历管理
 - `GET /student/reports`：已生成报告列表（发展报告/职业规划报告）
+- `GET /student/mentors`：按当前学生学校查询可预约老师
+- `POST /student/appointments` / `GET /student/appointments`：学生预约指导（选老师/我的预约）
 - `GET /student/portrait/matches`：四维匹配分
 - `POST /student/plans` / `GET /student/plans` / `GET /student/plans/pdf`：目标规划与PDF
 - `GET /student/notices`：通知中心

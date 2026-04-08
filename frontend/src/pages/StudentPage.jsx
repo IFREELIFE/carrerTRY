@@ -37,6 +37,9 @@ export default function StudentPage() {
   const [dailySummary, setDailySummary] = useState(null)
   const [homeSummary, setHomeSummary] = useState(null)
   const [reports, setReports] = useState([])
+  const [mentors, setMentors] = useState([])
+  const [appointmentForm, setAppointmentForm] = useState({ mentorId: '', appointmentTime: '', note: '' })
+  const [appointments, setAppointments] = useState([])
 
   async function loadHome(page = homePage) {
     try {
@@ -245,6 +248,48 @@ export default function StudentPage() {
     }
   }
 
+  async function loadMentors() {
+    try {
+      const data = await requestJson(`${API_BASE}/student/mentors`)
+      setMentors(Array.isArray(data) ? data : [])
+      setMessage('导师列表加载成功')
+    } catch (err) {
+      setMessage(`导师列表加载失败：${err.message}`)
+    }
+  }
+
+  async function bookAppointment() {
+    if (!appointmentForm.mentorId || !appointmentForm.appointmentTime.trim()) {
+      setMessage('请填写导师ID与预约时间')
+      return
+    }
+    try {
+      await requestJson(`${API_BASE}/student/appointments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mentorId: Number(appointmentForm.mentorId),
+          appointmentTime: appointmentForm.appointmentTime,
+          note: appointmentForm.note
+        })
+      })
+      setMessage('预约提交成功')
+      await loadAppointments()
+    } catch (err) {
+      setMessage(`预约提交失败：${err.message}`)
+    }
+  }
+
+  async function loadAppointments() {
+    try {
+      const data = await requestJson(`${API_BASE}/student/appointments`)
+      setAppointments(Array.isArray(data) ? data : [])
+      setMessage('我的预约加载成功')
+    } catch (err) {
+      setMessage(`我的预约加载失败：${err.message}`)
+    }
+  }
+
   async function loadNotices() {
     try {
       const data = await requestJson(`${API_BASE}/student/notices`)
@@ -384,6 +429,18 @@ export default function StudentPage() {
         <button onClick={loadAchievements} style={{ marginLeft: 8 }}>加载成就</button>
         <ul>{notices.map((n) => <li key={n.id}>{n.noticeType} | {n.title}</li>)}</ul>
         <ul>{achievements.map((a) => <li key={a.id}>{a.achievementCode} | {a.achievedAt}</li>)}</ul>
+      </section>
+
+      <section style={{ border: '1px solid #ddd', padding: 12, marginBottom: 12 }}>
+        <h3>学生预约指导（选老师/我的预约）</h3>
+        <button onClick={loadMentors}>加载导师</button>
+        <button onClick={loadAppointments} style={{ marginLeft: 8 }}>我的预约</button>
+        <ul>{mentors.map((m) => <li key={m.id}>{m.id} | {m.name} | {m.expertise} | {m.availableTime} | {m.location}</li>)}</ul>
+        <input placeholder="导师ID" value={appointmentForm.mentorId} onChange={(e) => setAppointmentForm((p) => ({ ...p, mentorId: e.target.value }))} style={{ width: '100%', marginBottom: 8 }} />
+        <input placeholder="预约时间（如 周三14:00）" value={appointmentForm.appointmentTime} onChange={(e) => setAppointmentForm((p) => ({ ...p, appointmentTime: e.target.value }))} style={{ width: '100%', marginBottom: 8 }} />
+        <textarea placeholder="预约说明" value={appointmentForm.note} onChange={(e) => setAppointmentForm((p) => ({ ...p, note: e.target.value }))} style={{ width: '100%', marginBottom: 8 }} />
+        <button onClick={bookAppointment}>提交预约</button>
+        <ul>{appointments.map((a) => <li key={a.id}>{a.mentorName} | {a.appointmentTime} | {a.status} | {a.createdAt}</li>)}</ul>
       </section>
 
       <section style={{ border: '1px solid #ddd', padding: 12 }}>

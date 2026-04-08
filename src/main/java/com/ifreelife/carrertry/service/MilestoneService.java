@@ -47,6 +47,7 @@ public class MilestoneService {
     private final AcceptanceChecklistItemRepository acceptanceChecklistItemRepository;
     private final StudentDailyActivityRepository studentDailyActivityRepository;
     private final StudentReportRepository studentReportRepository;
+    private final StudentMentorAppointmentRepository studentMentorAppointmentRepository;
     private final AiTaskDispatchService aiTaskDispatchService;
 
     @Transactional
@@ -200,6 +201,50 @@ public class MilestoneService {
     public List<TeacherMentor> listMentors() {
         UserAccount school = currentUser();
         return teacherMentorRepository.findBySchoolNameOrderByIdDesc(requireSchoolName(school));
+    }
+
+    public List<TeacherMentor> listMentorsForStudent() {
+        UserAccount student = currentUser();
+        if (student.getRole() != UserRole.STUDENT) {
+            throw new IllegalArgumentException("Only student can list mentors");
+        }
+        String schoolName = requireSchoolName(student);
+        return teacherMentorRepository.findBySchoolNameOrderByIdDesc(schoolName);
+    }
+
+    @Transactional
+    public StudentMentorAppointment bookMentorAppointment(Long mentorId, String appointmentTime, String note) {
+        UserAccount student = currentUser();
+        if (student.getRole() != UserRole.STUDENT) {
+            throw new IllegalArgumentException("Only student can book mentor appointment");
+        }
+        if (mentorId == null || mentorId <= 0) {
+            throw new IllegalArgumentException("mentorId must be positive");
+        }
+        String schoolName = requireSchoolName(student);
+        String normalizedTime = requireNonBlank(appointmentTime, "appointmentTime");
+        TeacherMentor mentor = teacherMentorRepository.findByIdAndSchoolName(mentorId, schoolName)
+            .orElseThrow(() -> new IllegalArgumentException("Mentor not found in current school"));
+
+        StudentMentorAppointment appointment = new StudentMentorAppointment();
+        appointment.setStudentUsername(student.getUsername());
+        appointment.setStudentName(student.getDisplayName());
+        appointment.setSchoolName(schoolName);
+        appointment.setMentorId(mentor.getId());
+        appointment.setMentorName(mentor.getName());
+        appointment.setAppointmentTime(normalizedTime);
+        appointment.setStatus("BOOKED");
+        appointment.setNote(note == null ? "" : note.trim());
+        appointment.setCreatedAt(LocalDateTime.now());
+        return studentMentorAppointmentRepository.save(appointment);
+    }
+
+    public List<StudentMentorAppointment> myMentorAppointments() {
+        UserAccount student = currentUser();
+        if (student.getRole() != UserRole.STUDENT) {
+            throw new IllegalArgumentException("Only student can view appointments");
+        }
+        return studentMentorAppointmentRepository.findByStudentUsernameOrderByCreatedAtDesc(student.getUsername());
     }
 
     public List<Map<String, Object>> schoolStudentsWithProfile() {
@@ -615,7 +660,7 @@ public class MilestoneService {
 
     private String requireSchoolName(UserAccount school) {
         if (school.getSchoolName() == null || school.getSchoolName().isBlank()) {
-            throw new IllegalArgumentException("Current school account has no school binding");
+            throw new IllegalArgumentException("Current account has no school binding");
         }
         return school.getSchoolName().trim();
     }
