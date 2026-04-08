@@ -8,6 +8,7 @@
 - Neo4j（技能图谱节点）
 - RESTful API
 - RBAC（若依风格角色分端）
+- React + Vite（前端同仓）
 
 ## API 路径约定
 - `/enterprise/...`
@@ -38,6 +39,18 @@
 ```bash
 mvn spring-boot:run
 ```
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+## 前端路由
+- `/enterprise/...`
+- `/admin/...`
+- `/student/...`
+- `/school/...`
 
 ## 配置
 可通过环境变量覆盖：
