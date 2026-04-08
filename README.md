@@ -72,6 +72,10 @@ npm run dev
 - `POST /student/applications`：投递岗位（基于当前登录学生身份写入，限制同学生重复投递同岗位）
 - `GET /student/applications`：查询当前登录学生的投递记录
 
+## 学校端接口（第4步）
+- `POST /school/feedbacks`：录入学生辅导评语（基于当前登录学校账号绑定学校）
+- `GET /school/feedbacks?studentName=...`：按学生姓名查询当前学校下的评语记录（按时间倒序）
+
 ## 配置
 可通过环境变量覆盖：
 - `MYSQL_HOST` `MYSQL_PORT` `MYSQL_DB` `MYSQL_USER` `MYSQL_PASSWORD`
