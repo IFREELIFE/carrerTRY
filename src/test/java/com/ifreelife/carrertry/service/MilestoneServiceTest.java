@@ -1,6 +1,10 @@
 package com.ifreelife.carrertry.service;
 
+import com.ifreelife.carrertry.entity.ApplicationStatus;
 import com.ifreelife.carrertry.entity.AcceptanceChecklistItem;
+import com.ifreelife.carrertry.entity.StudentApplication;
+import com.ifreelife.carrertry.entity.UserAccount;
+import com.ifreelife.carrertry.entity.UserRole;
 import com.ifreelife.carrertry.repository.AcceptanceChecklistItemRepository;
 import com.ifreelife.carrertry.repository.AchievementDefinitionRepository;
 import com.ifreelife.carrertry.repository.AiTaskRepository;
@@ -22,12 +26,17 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -71,6 +80,11 @@ class MilestoneServiceTest {
     @InjectMocks
     private MilestoneService milestoneService;
 
+    @org.junit.jupiter.api.AfterEach
+    void clearSecurityContext() {
+        SecurityContextHolder.clearContext();
+    }
+
     @Test
     void listTasksByStatusShouldRejectInvalidStatus() {
         assertThrows(IllegalArgumentException.class, () -> milestoneService.listTasksByStatus("UNKNOWN"));
@@ -99,5 +113,84 @@ class MilestoneServiceTest {
     @Test
     void listAcceptanceShouldRejectOutOfRangeStep() {
         assertThrows(IllegalArgumentException.class, () -> milestoneService.listAcceptance(13));
+    }
+
+    @Test
+    void publishNoticeShouldRequireAdminRole() {
+        mockCurrentUser("student-user", UserRole.STUDENT);
+
+        IllegalArgumentException ex = assertThrows(
+            IllegalArgumentException.class,
+            () -> milestoneService.publishNotice("公告", "内容", "STUDENT")
+        );
+        assertEquals("Only admin can publish system notices", ex.getMessage());
+        verify(systemNoticeRepository, never()).save(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void publishNoticeShouldRejectInvalidAudienceRole() {
+        mockCurrentUser("admin-user", UserRole.ADMIN);
+
+        IllegalArgumentException ex = assertThrows(
+            IllegalArgumentException.class,
+            () -> milestoneService.publishNotice("公告", "内容", "UNKNOWN")
+        );
+        assertTrue(ex.getMessage().contains("Invalid audienceRole"));
+        verify(systemNoticeRepository, never()).save(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void recordRagResultShouldRequireEnterpriseRole() {
+        mockCurrentUser("student-user", UserRole.STUDENT);
+
+        IllegalArgumentException ex = assertThrows(
+            IllegalArgumentException.class,
+            () -> milestoneService.recordRagResult("query", "context", 0.8d, 0.9d)
+        );
+        assertEquals("Only enterprise can record RAG result", ex.getMessage());
+    }
+
+    @Test
+    void recordRagResultShouldRejectOutOfRangeConfidence() {
+        mockCurrentUser("enterprise-user", UserRole.ENTERPRISE);
+
+        IllegalArgumentException ex = assertThrows(
+            IllegalArgumentException.class,
+            () -> milestoneService.recordRagResult("query", "context", 0.8d, 1.2d)
+        );
+        assertEquals("confidence must be in [0,1]", ex.getMessage());
+    }
+
+    @Test
+    void interviewFeedbackShouldRequireNotifiedStatus() {
+        UserAccount enterprise = mockCurrentUser("enterprise-user", UserRole.ENTERPRISE);
+        enterprise.setEnterpriseName("ACME");
+
+        StudentApplication application = new StudentApplication();
+        application.setId(1L);
+        application.setJobId(11L);
+        application.setStatus(ApplicationStatus.APPLIED);
+
+        com.ifreelife.carrertry.entity.JobPosting jobPosting = new com.ifreelife.carrertry.entity.JobPosting();
+        jobPosting.setId(11L);
+        jobPosting.setEnterpriseName("ACME");
+
+        when(studentApplicationRepository.findById(1L)).thenReturn(Optional.of(application));
+        when(jobPostingRepository.findById(11L)).thenReturn(Optional.of(jobPosting));
+
+        IllegalArgumentException ex = assertThrows(
+            IllegalArgumentException.class,
+            () -> milestoneService.interviewFeedback(1L, "反馈", true)
+        );
+        assertEquals("Interview feedback can only be submitted after interview notice", ex.getMessage());
+    }
+
+    private UserAccount mockCurrentUser(String username, UserRole role) {
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(username, "N/A"));
+        UserAccount user = new UserAccount();
+        user.setUsername(username);
+        user.setRole(role);
+        when(userAccountRepository.findByUsername(username)).thenReturn(Optional.of(user));
+        return user;
     }
 }

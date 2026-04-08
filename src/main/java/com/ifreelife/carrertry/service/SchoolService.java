@@ -25,11 +25,20 @@ public class SchoolService {
     @Transactional
     public SchoolFeedback createFeedback(SchoolFeedbackRequest request) {
         UserAccount account = loadCurrentSchoolAccount();
+        if (request.getStudentName() == null || request.getStudentName().isBlank()) {
+            throw new IllegalArgumentException("studentName cannot be blank");
+        }
+        if (request.getMentor() == null || request.getMentor().isBlank()) {
+            throw new IllegalArgumentException("mentor cannot be blank");
+        }
+        if (request.getComment() == null || request.getComment().isBlank()) {
+            throw new IllegalArgumentException("comment cannot be blank");
+        }
         SchoolFeedback feedback = new SchoolFeedback();
-        feedback.setStudentName(request.getStudentName());
+        feedback.setStudentName(request.getStudentName().trim());
         feedback.setSchoolName(account.getSchoolName().trim());
-        feedback.setMentor(request.getMentor());
-        feedback.setComment(request.getComment());
+        feedback.setMentor(request.getMentor().trim());
+        feedback.setComment(request.getComment().trim());
         SchoolFeedback saved = schoolFeedbackRepository.save(feedback);
         userAccountRepository.findByRoleAndSchoolNameAndDisplayNameIgnoreCase(
                 com.ifreelife.carrertry.entity.UserRole.STUDENT,
@@ -43,9 +52,12 @@ public class SchoolService {
 
     public List<SchoolFeedback> queryByStudent(String studentName) {
         UserAccount account = loadCurrentSchoolAccount();
+        if (studentName == null || studentName.isBlank()) {
+            throw new IllegalArgumentException("studentName cannot be blank");
+        }
         return schoolFeedbackRepository.findBySchoolNameAndStudentNameOrderByCreatedAtDesc(
             account.getSchoolName().trim(),
-            studentName
+            studentName.trim()
         );
     }
 
@@ -53,6 +65,9 @@ public class SchoolService {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         UserAccount account = userAccountRepository.findByUsername(username)
             .orElseThrow(() -> new IllegalArgumentException("School account not found for current user"));
+        if (account.getRole() != com.ifreelife.carrertry.entity.UserRole.SCHOOL) {
+            throw new IllegalArgumentException("Only school can operate school feedback");
+        }
         if (account.getSchoolName() == null || account.getSchoolName().isBlank()) {
             throw new IllegalArgumentException("Current account has no school binding");
         }
