@@ -108,9 +108,9 @@ npm run dev
 - `POST /admin/achievements/init`：初始化30个成就定义
 - `GET /admin/quality-metrics`：质量指标
 - `POST /admin/acceptance` / `GET /admin/acceptance`：联调验收清单
-- `app.ai.queue-name`：RabbitMQ AI任务队列名（默认 `careertry.ai.tasks`）
 
 ## 配置
 可通过环境变量覆盖：
 - `MYSQL_HOST` `MYSQL_PORT` `MYSQL_DB` `MYSQL_USER` `MYSQL_PASSWORD`
 - `NEO4J_URI` `NEO4J_USER` `NEO4J_PASSWORD`
+- `APP_AI_QUEUE_NAME`（映射 `app.ai.queue-name`，默认 `careertry.ai.tasks`）

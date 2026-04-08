@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -28,7 +29,7 @@ public class AiTaskDispatchService {
         payload.put("taskName", task.getTaskName());
         payload.put("taskStatus", task.getTaskStatus());
         payload.put("retryCount", task.getRetryCount());
-        payload.put("updatedAt", task.getUpdatedAt() == null ? LocalDateTime.now().toString() : task.getUpdatedAt().toString());
+        payload.put("updatedAt", DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(task.getUpdatedAt()));
         try {
             rabbitTemplate.convertAndSend(queueName, payload);
             return true;

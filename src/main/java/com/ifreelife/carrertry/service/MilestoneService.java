@@ -363,11 +363,11 @@ public class MilestoneService {
         if (!"FAILED".equalsIgnoreCase(task.getTaskStatus())) {
             throw new IllegalArgumentException("Only FAILED task can retry");
         }
-        task.setRetryCount(Optional.ofNullable(task.getRetryCount()).orElse(0) + 1);
-        task.setErrorMessage(null);
         task.setUpdatedAt(LocalDateTime.now());
         if (aiTaskDispatchService.dispatchRetry(task)) {
             task.setTaskStatus("QUEUED");
+            task.setRetryCount(Optional.ofNullable(task.getRetryCount()).orElse(0) + 1);
+            task.setErrorMessage(null);
         } else {
             task.setTaskStatus("FAILED");
             task.setErrorMessage("RabbitMQ dispatch failed, please retry later");
