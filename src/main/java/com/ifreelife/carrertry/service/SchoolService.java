@@ -25,11 +25,14 @@ public class SchoolService {
     @Transactional
     public SchoolFeedback createFeedback(SchoolFeedbackRequest request) {
         UserAccount account = loadCurrentSchoolAccount();
+        String studentName = requireNonBlank(request.getStudentName(), "studentName");
+        String mentor = requireNonBlank(request.getMentor(), "mentor");
+        String comment = requireNonBlank(request.getComment(), "comment");
         SchoolFeedback feedback = new SchoolFeedback();
-        feedback.setStudentName(request.getStudentName());
+        feedback.setStudentName(studentName);
         feedback.setSchoolName(account.getSchoolName().trim());
-        feedback.setMentor(request.getMentor());
-        feedback.setComment(request.getComment());
+        feedback.setMentor(mentor);
+        feedback.setComment(comment);
         SchoolFeedback saved = schoolFeedbackRepository.save(feedback);
         userAccountRepository.findByRoleAndSchoolNameAndDisplayNameIgnoreCase(
                 com.ifreelife.carrertry.entity.UserRole.STUDENT,
@@ -43,9 +46,10 @@ public class SchoolService {
 
     public List<SchoolFeedback> queryByStudent(String studentName) {
         UserAccount account = loadCurrentSchoolAccount();
+        String normalizedStudentName = requireNonBlank(studentName, "studentName");
         return schoolFeedbackRepository.findBySchoolNameAndStudentNameOrderByCreatedAtDesc(
             account.getSchoolName().trim(),
-            studentName
+            normalizedStudentName
         );
     }
 
@@ -53,6 +57,9 @@ public class SchoolService {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         UserAccount account = userAccountRepository.findByUsername(username)
             .orElseThrow(() -> new IllegalArgumentException("School account not found for current user"));
+        if (account.getRole() != com.ifreelife.carrertry.entity.UserRole.SCHOOL) {
+            throw new IllegalArgumentException("Only school can operate school feedback");
+        }
         if (account.getSchoolName() == null || account.getSchoolName().isBlank()) {
             throw new IllegalArgumentException("Current account has no school binding");
         }
@@ -73,5 +80,12 @@ public class SchoolService {
             profile.setPortraitTags((tags + ",导师反馈").replaceAll("^,", ""));
         }
         studentProfileRepository.save(profile);
+    }
+
+    private String requireNonBlank(String value, String fieldName) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(fieldName + " cannot be blank");
+        }
+        return value.trim();
     }
 }
