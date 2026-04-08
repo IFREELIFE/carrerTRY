@@ -8,6 +8,7 @@ import com.ifreelife.carrertry.entity.ResumeRecord;
 import com.ifreelife.carrertry.entity.StudentAchievement;
 import com.ifreelife.carrertry.entity.StudentProfile;
 import com.ifreelife.carrertry.entity.StudentApplication;
+import com.ifreelife.carrertry.entity.StudentReport;
 import com.ifreelife.carrertry.service.JobService;
 import com.ifreelife.carrertry.service.MilestoneService;
 import com.ifreelife.carrertry.service.StudentService;
@@ -39,6 +40,11 @@ public class StudentController {
     @GetMapping("/home")
     public Page<JobPosting> home(@RequestParam(defaultValue = "0") int page) {
         return milestoneService.studentHomeJobs(page);
+    }
+
+    @GetMapping("/home/summary")
+    public Map<String, Object> homeSummary() {
+        return milestoneService.studentHomeSummary();
     }
 
     @GetMapping("/jobs/{id}")
@@ -124,6 +130,11 @@ public class StudentController {
     @GetMapping("/resumes")
     public List<ResumeRecord> resumes() {
         return milestoneService.listMyResumes();
+    }
+
+    @GetMapping("/reports")
+    public List<StudentReport> reports() {
+        return milestoneService.listMyReports();
     }
 
     @GetMapping("/portrait/matches")

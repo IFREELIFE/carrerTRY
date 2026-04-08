@@ -35,6 +35,8 @@ export default function StudentPage() {
   const [correction, setCorrection] = useState({ wrongPoint: '', correctionAction: '', closedLoopStatus: 'OPEN' })
   const [corrections, setCorrections] = useState([])
   const [dailySummary, setDailySummary] = useState(null)
+  const [homeSummary, setHomeSummary] = useState(null)
+  const [reports, setReports] = useState([])
 
   async function loadHome(page = homePage) {
     try {
@@ -47,6 +49,7 @@ export default function StudentPage() {
         body: JSON.stringify({ viewedJobs: true })
       })
       await loadDailySummary()
+      await loadHomeSummary()
       setMessage('首页岗位加载成功')
     } catch (err) {
       setMessage(`首页岗位加载失败：${err.message}`)
@@ -87,6 +90,15 @@ export default function StudentPage() {
     }
   }
 
+  async function loadHomeSummary() {
+    try {
+      const data = await requestJson(`${API_BASE}/student/home/summary`)
+      setHomeSummary(data)
+    } catch {
+      setHomeSummary(null)
+    }
+  }
+
   async function submitOnboarding(e) {
     e.preventDefault()
     try {
@@ -95,6 +107,8 @@ export default function StudentPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(onboarding)
       })
+      await loadHomeSummary()
+      await loadReports()
       setMessage('首次链路完成')
     } catch (err) {
       setMessage(`首次链路失败：${err.message}`)
@@ -142,6 +156,7 @@ export default function StudentPage() {
     try {
       const data = await requestJson(`${API_BASE}/student/resumes`)
       setResumes(Array.isArray(data) ? data : [])
+      await loadHomeSummary()
       setMessage('简历列表加载成功')
     } catch (err) {
       setMessage(`简历列表加载失败：${err.message}`)
@@ -202,6 +217,8 @@ export default function StudentPage() {
         body: JSON.stringify(plan)
       })
       setMyPlan(data)
+      await loadReports()
+      await loadHomeSummary()
       setMessage('规划保存成功')
     } catch (err) {
       setMessage(`规划保存失败：${err.message}`)
@@ -215,6 +232,16 @@ export default function StudentPage() {
       setMessage('规划加载成功')
     } catch (err) {
       setMessage(`规划加载失败：${err.message}`)
+    }
+  }
+
+  async function loadReports() {
+    try {
+      const data = await requestJson(`${API_BASE}/student/reports`)
+      setReports(Array.isArray(data) ? data : [])
+      setMessage('报告列表加载成功')
+    } catch (err) {
+      setMessage(`报告列表加载失败：${err.message}`)
     }
   }
 
@@ -270,9 +297,22 @@ export default function StudentPage() {
       <section style={{ border: '1px solid #ddd', padding: 12, marginBottom: 12 }}>
         <h3>首页岗位（15条分页）</h3>
         <button onClick={loadDailySummary}>加载签到信息</button>
+        <button onClick={loadHomeSummary} style={{ marginLeft: 8 }}>加载首页概览</button>
+        <button onClick={loadReports} style={{ marginLeft: 8 }}>加载报告列表</button>
         <button onClick={recordActive30s} style={{ marginLeft: 8 }}>记录30秒活跃</button>
         <button onClick={checkInToday} style={{ marginLeft: 8 }}>今日签到</button>
         <pre>{dailySummary ? JSON.stringify(dailySummary, null, 2) : '暂无签到数据'}</pre>
+        <ul>
+          <li>每日签到：{homeSummary?.dailyCheckIn?.checkedIn ? '已签到' : '未签到'}</li>
+          <li>简历上传：{homeSummary?.resumeUploaded ? `已上传(${homeSummary?.resumeCount})` : '未上传'}</li>
+          <li>MBTI测试：{homeSummary?.mbtiCompleted ? '已完成' : '未完成'}</li>
+          <li>匹配岗位数量：{homeSummary?.matchedJobCount ?? 0}</li>
+          <li>连续签到日长：{homeSummary?.consecutiveCheckInDays ?? 0}</li>
+        </ul>
+        <h4>已生成报告</h4>
+        <ul>
+          {reports.map((r) => <li key={r.id}>{r.reportType} | {r.reportTitle} | {r.createdAt}</li>)}
+        </ul>
         <button onClick={() => loadHome(Math.max(homePage - 1, 0))}>上一页</button>
         <button onClick={() => loadHome(homePage + 1)} style={{ marginLeft: 8 }}>下一页</button>
         <button onClick={() => loadHome(homePage)} style={{ marginLeft: 8 }}>刷新</button>

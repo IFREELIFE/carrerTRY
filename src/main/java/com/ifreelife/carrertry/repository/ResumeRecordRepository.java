@@ -7,4 +7,6 @@ import java.util.List;
 
 public interface ResumeRecordRepository extends JpaRepository<ResumeRecord, Long> {
     List<ResumeRecord> findByStudentUsernameOrderByUpdatedAtDesc(String studentUsername);
+
+    long countByStudentUsername(String studentUsername);
 }

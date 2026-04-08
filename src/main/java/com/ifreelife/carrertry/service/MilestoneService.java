@@ -46,6 +46,7 @@ public class MilestoneService {
     private final ErrorCorrectionRecordRepository errorCorrectionRecordRepository;
     private final AcceptanceChecklistItemRepository acceptanceChecklistItemRepository;
     private final StudentDailyActivityRepository studentDailyActivityRepository;
+    private final StudentReportRepository studentReportRepository;
     private final AiTaskDispatchService aiTaskDispatchService;
 
     @Transactional
@@ -77,6 +78,12 @@ public class MilestoneService {
         student.setOnboardingCompleted(true);
         userAccountRepository.save(student);
         grantAchievement(student.getUsername(), "ACH_ONBOARDING");
+        createStudentReport(
+            student.getUsername(),
+            "DEVELOPMENT",
+            "个人发展报告",
+            saved.getAiSummary()
+        );
         return saved;
     }
 
@@ -119,6 +126,14 @@ public class MilestoneService {
     public List<ResumeRecord> listMyResumes() {
         UserAccount user = currentUser();
         return resumeRecordRepository.findByStudentUsernameOrderByUpdatedAtDesc(user.getUsername());
+    }
+
+    public List<StudentReport> listMyReports() {
+        UserAccount user = currentUser();
+        if (user.getRole() != UserRole.STUDENT) {
+            throw new IllegalArgumentException("Only student can view reports");
+        }
+        return studentReportRepository.findByStudentUsernameOrderByCreatedAtDesc(user.getUsername());
     }
 
     public Page<JobPosting> studentHomeJobs(int page) {
@@ -296,7 +311,14 @@ public class MilestoneService {
         plan.setDynamicAdjustment(dynamicAdjustment == null ? "" : dynamicAdjustment.trim());
         plan.setUpdatedAt(LocalDateTime.now());
         grantAchievement(student.getUsername(), "ACH_PLAN_CREATED");
-        return careerPlanRepository.save(plan);
+        CareerPlan saved = careerPlanRepository.save(plan);
+        createStudentReport(
+            student.getUsername(),
+            "CAREER_PLAN",
+            "职业规划报告",
+            saved.getCareerPlanning() + " | " + saved.getTrainingPlan()
+        );
+        return saved;
     }
 
     public CareerPlan myCareerPlan() {
@@ -523,6 +545,29 @@ public class MilestoneService {
         return buildDailySummary(student.getUsername(), activity);
     }
 
+    public Map<String, Object> studentHomeSummary() {
+        UserAccount student = currentUser();
+        if (student.getRole() != UserRole.STUDENT) {
+            throw new IllegalArgumentException("Only student can view home summary");
+        }
+        StudentDailyActivity dailyActivity = loadOrCreateDailyActivity(student.getUsername(), LocalDate.now());
+        Optional<StudentProfile> profileOpt = studentProfileRepository.findByStudentUsername(student.getUsername());
+        long resumeCount = resumeRecordRepository.countByStudentUsername(student.getUsername());
+        int matchedJobCount = profileOpt
+            .map(this::calculateMatchedJobCount)
+            .orElse(0);
+        List<StudentReport> reports = studentReportRepository.findByStudentUsernameOrderByCreatedAtDesc(student.getUsername());
+        return Map.of(
+            "dailyCheckIn", buildDailySummary(student.getUsername(), dailyActivity),
+            "resumeUploaded", resumeCount > 0,
+            "resumeCount", resumeCount,
+            "mbtiCompleted", profileOpt.map(StudentProfile::getMbtiType).filter(v -> v != null && !v.isBlank()).isPresent(),
+            "matchedJobCount", matchedJobCount,
+            "generatedReports", reports,
+            "consecutiveCheckInDays", calculateCurrentStreak(student.getUsername())
+        );
+    }
+
     @Transactional
     public AcceptanceChecklistItem updateAcceptance(Integer stepNo, String itemName, boolean doneFlag, String note) {
         if (stepNo == null || stepNo < 1 || stepNo > MAX_ACCEPTANCE_STEP) {
@@ -661,6 +706,28 @@ public class MilestoneService {
             "priorityToday", canPriorityToday(activity),
             "ruleAnnouncement", ACTIVE_PRIORITY_RULE
         );
+    }
+
+    private int calculateMatchedJobCount(StudentProfile profile) {
+        return (int) jobPostingRepository.findByStatus(JobStatus.APPROVED)
+            .stream()
+            .filter(job -> {
+                int skill = scoreByContains(job.getSkills(), profile.getTechStack());
+                int exp = scoreByContains(job.getExperienceRequirement(), profile.getCapabilityInfo());
+                int edu = scoreByContains(job.getEducationRequirement(), profile.getCapabilityInfo());
+                int total = (skill + exp + edu) / 3;
+                return total >= 60;
+            })
+            .count();
+    }
+
+    private void createStudentReport(String studentUsername, String reportType, String reportTitle, String reportSummary) {
+        StudentReport report = new StudentReport();
+        report.setStudentUsername(studentUsername);
+        report.setReportType(reportType);
+        report.setReportTitle(reportTitle);
+        report.setReportSummary(reportSummary == null ? "" : reportSummary.trim());
+        studentReportRepository.save(report);
     }
 
     private int scoreByContains(String target, String source) {
