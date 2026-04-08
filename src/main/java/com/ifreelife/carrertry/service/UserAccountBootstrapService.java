@@ -1,6 +1,5 @@
 package com.ifreelife.carrertry.service;
 
-import com.ifreelife.carrertry.common.RoleConstants;
 import com.ifreelife.carrertry.entity.UserAccount;
 import com.ifreelife.carrertry.entity.UserRole;
 import com.ifreelife.carrertry.repository.UserAccountRepository;
@@ -48,10 +47,10 @@ public class UserAccountBootstrapService implements ApplicationRunner {
         account.setEmail(email);
         account.setPassword(passwordEncoder.encode(rawPassword));
         account.setRole(role);
-        if (RoleConstants.SCHOOL.equals(role.name()) || RoleConstants.STUDENT.equals(role.name())) {
+        if (role == UserRole.SCHOOL || role == UserRole.STUDENT) {
             account.setSchoolName("Demo School");
         }
-        if (RoleConstants.ENTERPRISE.equals(role.name())) {
+        if (role == UserRole.ENTERPRISE) {
             account.setEnterpriseName("Demo Enterprise");
             account.setUnifiedSocialCreditCode("91300000DEMO00001");
             account.setLegalRepresentative("Demo Legal");

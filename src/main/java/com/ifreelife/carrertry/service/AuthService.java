@@ -85,10 +85,11 @@ public class AuthService {
     }
 
     private void validateUsernameAndEmail(String username, String email) {
+        String normalizedEmail = email.trim().toLowerCase();
         if (userAccountRepository.existsByUsername(username)) {
             throw new IllegalArgumentException("Username already exists");
         }
-        if (userAccountRepository.existsByEmail(email.toLowerCase())) {
+        if (userAccountRepository.existsByEmail(normalizedEmail)) {
             throw new IllegalArgumentException("Email already exists");
         }
     }
