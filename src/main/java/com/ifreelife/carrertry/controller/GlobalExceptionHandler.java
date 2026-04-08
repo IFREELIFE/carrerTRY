@@ -22,7 +22,7 @@ public class GlobalExceptionHandler {
     public Map<String, String> handleValidation(MethodArgumentNotValidException ex) {
         String message = ex.getBindingResult().getFieldErrors().stream()
             .findFirst()
-            .map(error -> error.getField() + " " + error.getDefaultMessage())
+            .map(error -> "Field '" + error.getField() + "' " + error.getDefaultMessage())
             .orElse("Validation failed");
         return Map.of("message", message);
     }
