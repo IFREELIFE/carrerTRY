@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -30,6 +31,7 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class JobService {
     private static final int EXPECTED_EXCEL_COLUMN_COUNT = 9;
+    private static final int MAX_DECIMAL_INPUT_LENGTH = 32;
     private static final String[] EXPECTED_HEADER_COLUMNS = {
         "title",
         "department",
@@ -106,20 +108,20 @@ public class JobService {
                     }
                     continue;
                 }
-                String[] cells = line.split(",", EXPECTED_EXCEL_COLUMN_COUNT);
-                if (cells.length < EXPECTED_EXCEL_COLUMN_COUNT) {
+                List<String> cells = parseCsvLine(line);
+                if (cells.size() < EXPECTED_EXCEL_COLUMN_COUNT) {
                     throw new IllegalArgumentException("Invalid excel row at line " + lineNo);
                 }
                 JobCreateRequest request = new JobCreateRequest();
-                request.setTitle(cells[0].trim());
-                request.setDepartment(cells[1].trim());
-                request.setLocation(cells[2].trim());
-                request.setSalaryMin(parseDecimal(cells[3].trim(), lineNo));
-                request.setSalaryMax(parseDecimal(cells[4].trim(), lineNo));
-                request.setExperienceRequirement(cells[5].trim());
-                request.setEducationRequirement(cells[6].trim());
-                request.setSkills(cells[7].trim());
-                request.setDescription(cells[8].trim());
+                request.setTitle(cells.get(0).trim());
+                request.setDepartment(cells.get(1).trim());
+                request.setLocation(cells.get(2).trim());
+                request.setSalaryMin(parseDecimal(cells.get(3).trim(), lineNo));
+                request.setSalaryMax(parseDecimal(cells.get(4).trim(), lineNo));
+                request.setExperienceRequirement(cells.get(5).trim());
+                request.setEducationRequirement(cells.get(6).trim());
+                request.setSkills(cells.get(7).trim());
+                request.setDescription(cells.get(8).trim());
                 request.setEnterpriseName(enterpriseName.trim());
                 requests.add(request);
             }
@@ -230,16 +232,45 @@ public class JobService {
     }
 
     private boolean isExpectedHeader(String line) {
-        String[] cells = line.split(",", EXPECTED_EXCEL_COLUMN_COUNT);
-        if (cells.length < EXPECTED_EXCEL_COLUMN_COUNT) {
+        List<String> cells = parseCsvLine(line);
+        if (cells.size() < EXPECTED_EXCEL_COLUMN_COUNT) {
             return false;
         }
         for (int i = 0; i < EXPECTED_EXCEL_COLUMN_COUNT; i++) {
-            if (!cells[i].trim().toLowerCase().equals(EXPECTED_HEADER_COLUMNS[i])) {
+            if (!cells.get(i).trim().toLowerCase().equals(EXPECTED_HEADER_COLUMNS[i])) {
                 return false;
             }
         }
         return true;
+    }
+
+    private List<String> parseCsvLine(String line) {
+        if (line == null) {
+            return Collections.emptyList();
+        }
+        List<String> cells = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        boolean inQuotes = false;
+        for (int i = 0; i < line.length(); i++) {
+            char ch = line.charAt(i);
+            if (ch == '"') {
+                if (inQuotes && i + 1 < line.length() && line.charAt(i + 1) == '"') {
+                    current.append('"');
+                    i++;
+                } else {
+                    inQuotes = !inQuotes;
+                }
+                continue;
+            }
+            if (ch == ',' && !inQuotes) {
+                cells.add(current.toString());
+                current = new StringBuilder();
+                continue;
+            }
+            current.append(ch);
+        }
+        cells.add(current.toString());
+        return cells;
     }
 
     private void ensureEnterpriseScope(String enterpriseName) {
@@ -260,6 +291,9 @@ public class JobService {
     }
 
     private BigDecimal parseDecimal(String value, int lineNo) {
+        if (value == null || value.isBlank() || value.length() > MAX_DECIMAL_INPUT_LENGTH) {
+            throw new IllegalArgumentException("Invalid salary value at line " + lineNo);
+        }
         try {
             return new BigDecimal(value);
         } catch (NumberFormatException ex) {
