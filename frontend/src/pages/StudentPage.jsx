@@ -129,13 +129,18 @@ export default function StudentPage() {
   }
 
   async function updateCenter() {
+    const parsedAge = center.age === '' ? null : Number(center.age)
+    if (parsedAge !== null && Number.isNaN(parsedAge)) {
+      setMessage('年龄必须是数字')
+      return
+    }
     try {
       const data = await requestJson(`${API_BASE}/student/center`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...center,
-          age: center.age === '' ? null : Number(center.age)
+          age: parsedAge
         })
       })
       setMessage(`个人中心更新成功：${data.user.displayName}`)

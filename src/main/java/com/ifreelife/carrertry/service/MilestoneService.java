@@ -128,10 +128,14 @@ public class MilestoneService {
         user.setGender(normalizeGender(gender));
         user.setMajor(normalizeOptional(major));
         String normalizedSchoolName = requireNonBlank(schoolName, "schoolName");
-        ensureSchoolBindingExists(normalizedSchoolName);
+        String currentSchoolName = user.getSchoolName() == null ? "" : user.getSchoolName().trim();
+        if (!normalizedSchoolName.equalsIgnoreCase(currentSchoolName)) {
+            ensureSchoolBindingExists(normalizedSchoolName);
+        }
         user.setSchoolName(normalizedSchoolName);
         String normalizedEmail = requireNonBlank(email, "email").toLowerCase();
-        if (!user.getEmail().equalsIgnoreCase(normalizedEmail) && userAccountRepository.existsByEmail(normalizedEmail)) {
+        String currentEmail = user.getEmail() == null ? "" : user.getEmail().trim().toLowerCase();
+        if (!currentEmail.equals(normalizedEmail) && userAccountRepository.existsByEmail(normalizedEmail)) {
             throw new IllegalArgumentException("Email already exists");
         }
         user.setEmail(normalizedEmail);
@@ -402,7 +406,7 @@ public class MilestoneService {
         if (school.getRole() != UserRole.SCHOOL) {
             throw new IllegalArgumentException("Only school can view dashboard");
         }
-        List<UserAccount> students = userAccountRepository.findByRoleAndSchoolName(UserRole.STUDENT, requireSchoolName(school));
+        List<UserAccount> students = loadAllSchoolStudents(requireSchoolName(school));
         List<String> usernames = students.stream().map(UserAccount::getUsername).toList();
         List<CareerPlan> plans = usernames.isEmpty() ? List.of() : careerPlanRepository.findByStudentUsernameIn(usernames);
         List<StudentProfile> profiles = usernames.isEmpty() ? List.of() : studentProfileRepository.findByStudentUsernameIn(usernames);
@@ -904,16 +908,35 @@ public class MilestoneService {
             return "";
         }
         String upper = normalized.toUpperCase(Locale.ROOT);
-        if (List.of("MALE", "FEMALE", "OTHER", "男", "女", "其他").contains(upper) || List.of("男", "女", "其他").contains(normalized)) {
+        if (List.of("MALE", "FEMALE", "OTHER", "男", "女", "其他").contains(upper)) {
             return normalized;
         }
         throw new IllegalArgumentException("gender must be one of MALE/FEMALE/OTHER/男/女/其他");
     }
 
     private void ensureSchoolBindingExists(String schoolName) {
-        if (userAccountRepository.findByRoleAndSchoolName(UserRole.SCHOOL, schoolName).isEmpty()) {
-            throw new IllegalArgumentException("schoolName not found in school accounts");
+        if (!userAccountRepository.existsByRoleAndSchoolName(UserRole.SCHOOL, schoolName)) {
+            throw new IllegalArgumentException("The specified school does not have a registered school account");
         }
+    }
+
+    private List<UserAccount> loadAllSchoolStudents(String schoolName) {
+        int page = 0;
+        int size = 500;
+        List<UserAccount> all = new ArrayList<>();
+        while (true) {
+            Page<UserAccount> batch = userAccountRepository.findByRoleAndSchoolName(
+                UserRole.STUDENT,
+                schoolName,
+                PageRequest.of(page, size)
+            );
+            all.addAll(batch.getContent());
+            if (batch.isLast()) {
+                break;
+            }
+            page++;
+        }
+        return all;
     }
 
     private StudentDailyActivity loadOrCreateDailyActivity(String studentUsername, LocalDate day) {

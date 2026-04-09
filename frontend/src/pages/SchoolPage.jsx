@@ -227,7 +227,11 @@ export default function SchoolPage() {
           下一页
         </button>
         <button type="button" onClick={() => loadStudents(studentPage)} style={{ marginLeft: 8 }}>刷新</button>
-        <p>当前第 {studentPage + 1} / {Math.max(studentTotalPages, 1)} 页</p>
+        <p>
+          {studentTotalPages > 0
+            ? `当前第 ${studentPage + 1} / ${studentTotalPages} 页`
+            : '暂无学生数据'}
+        </p>
         <ul>
           {students.map((s, idx) => (
             <li key={`${s.username}-${idx}`}>
