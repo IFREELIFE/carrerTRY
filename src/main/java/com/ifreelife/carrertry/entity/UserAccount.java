@@ -53,6 +53,12 @@ public class UserAccount {
     @Column(length = 32)
     private String phone;
 
+    @Column
+    private Integer age;
+
+    @Column(length = 16)
+    private String gender;
+
     @Column(length = 64)
     private String major;
 

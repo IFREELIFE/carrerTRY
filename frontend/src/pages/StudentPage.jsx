@@ -24,7 +24,7 @@ export default function StudentPage() {
   const [applications, setApplications] = useState([])
   const [onboarding, setOnboarding] = useState({ techStack: '', capabilityInfo: '', mbtiType: '', commitmentAgreed: false })
   const [profile, setProfile] = useState(null)
-  const [center, setCenter] = useState({ displayName: '', phone: '', major: '' })
+  const [center, setCenter] = useState({ displayName: '', age: '', gender: '', major: '', schoolName: '', email: '', phone: '' })
   const [resume, setResume] = useState({ fileName: 'resume.txt', content: '' })
   const [resumes, setResumes] = useState([])
   const [portraitMatches, setPortraitMatches] = useState([])
@@ -133,11 +133,33 @@ export default function StudentPage() {
       const data = await requestJson(`${API_BASE}/student/center`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(center)
+        body: JSON.stringify({
+          ...center,
+          age: center.age === '' ? null : Number(center.age)
+        })
       })
       setMessage(`个人中心更新成功：${data.user.displayName}`)
+      await loadCenter()
     } catch (err) {
       setMessage(`个人中心更新失败：${err.message}`)
+    }
+  }
+
+  async function loadCenter() {
+    try {
+      const data = await requestJson(`${API_BASE}/student/center`)
+      setCenter({
+        displayName: data.displayName ?? '',
+        age: data.age ?? '',
+        gender: data.gender ?? '',
+        major: data.major ?? '',
+        schoolName: data.schoolName ?? '',
+        email: data.email ?? '',
+        phone: data.phone ?? ''
+      })
+      setMessage('个人中心加载成功')
+    } catch (err) {
+      setMessage(`个人中心加载失败：${err.message}`)
     }
   }
 
@@ -388,7 +410,12 @@ export default function StudentPage() {
 
       <section style={{ border: '1px solid #ddd', padding: 12, marginBottom: 12 }}>
         <h3>个人中心可编辑</h3>
+        <button onClick={loadCenter}>加载个人中心</button>
         <input placeholder="姓名" value={center.displayName} onChange={(e) => setCenter((p) => ({ ...p, displayName: e.target.value }))} style={{ width: '100%', marginBottom: 8 }} />
+        <input placeholder="年龄" type="number" value={center.age} onChange={(e) => setCenter((p) => ({ ...p, age: e.target.value }))} style={{ width: '100%', marginBottom: 8 }} />
+        <input placeholder="性别" value={center.gender} onChange={(e) => setCenter((p) => ({ ...p, gender: e.target.value }))} style={{ width: '100%', marginBottom: 8 }} />
+        <input placeholder="学校" value={center.schoolName} onChange={(e) => setCenter((p) => ({ ...p, schoolName: e.target.value }))} style={{ width: '100%', marginBottom: 8 }} />
+        <input placeholder="邮箱" value={center.email} onChange={(e) => setCenter((p) => ({ ...p, email: e.target.value }))} style={{ width: '100%', marginBottom: 8 }} />
         <input placeholder="电话" value={center.phone} onChange={(e) => setCenter((p) => ({ ...p, phone: e.target.value }))} style={{ width: '100%', marginBottom: 8 }} />
         <input placeholder="专业" value={center.major} onChange={(e) => setCenter((p) => ({ ...p, major: e.target.value }))} style={{ width: '100%', marginBottom: 8 }} />
         <button onClick={updateCenter}>保存个人中心</button>

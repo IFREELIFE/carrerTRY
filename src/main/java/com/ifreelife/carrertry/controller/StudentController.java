@@ -108,14 +108,23 @@ public class StudentController {
         return milestoneService.myProfile();
     }
 
+    @GetMapping("/center")
+    public Map<String, Object> center() {
+        return milestoneService.studentCenter();
+    }
+
     @PutMapping("/center")
-    public Map<String, Object> updateCenter(@RequestBody Map<String, String> request) {
+    public Map<String, Object> updateCenter(@RequestBody Map<String, Object> request) {
         return Map.of(
             "user",
-            milestoneService.updateStudentBaseInfo(
-                request.getOrDefault("displayName", ""),
-                request.getOrDefault("phone", ""),
-                request.getOrDefault("major", "")
+            milestoneService.updateStudentCenter(
+                String.valueOf(request.getOrDefault("displayName", "")),
+                parseNullableIntField(request.get("age"), "age"),
+                String.valueOf(request.getOrDefault("gender", "")),
+                String.valueOf(request.getOrDefault("major", "")),
+                String.valueOf(request.getOrDefault("schoolName", "")),
+                String.valueOf(request.getOrDefault("email", "")),
+                String.valueOf(request.getOrDefault("phone", ""))
             )
         );
     }
@@ -215,6 +224,20 @@ public class StudentController {
     private int parseIntField(Object value, String fieldName) {
         if (value == null) {
             return 0;
+        }
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        try {
+            return Integer.parseInt(String.valueOf(value).trim());
+        } catch (NumberFormatException ex) {
+            throw new IllegalArgumentException(fieldName + " must be an integer");
+        }
+    }
+
+    private Integer parseNullableIntField(Object value, String fieldName) {
+        if (value == null || String.valueOf(value).isBlank()) {
+            return null;
         }
         if (value instanceof Number number) {
             return number.intValue();

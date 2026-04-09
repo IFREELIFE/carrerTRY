@@ -84,7 +84,7 @@ npm run dev
 - `POST /student/check-in`：当日签到（满足活跃规则后可签到）
 - `GET /student/check-in/summary`：签到与连续签到天数摘要（含“当日活跃=当日优先”规则）
 - `GET /student/profile`：学生画像
-- `PUT /student/center`：个人中心信息编辑
+- `GET /student/center` / `PUT /student/center`：个人中心信息查询与编辑（姓名、年龄、性别、专业、学校、邮箱、手机）
 - `POST /student/resumes` / `GET /student/resumes`：简历管理
 - `GET /student/reports`：已生成报告列表（发展报告/职业规划报告）
 - `GET /student/mentors`：按当前学生学校查询可预约老师

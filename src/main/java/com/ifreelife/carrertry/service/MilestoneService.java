@@ -100,10 +100,60 @@ public class MilestoneService {
         if (user.getRole() != UserRole.STUDENT) {
             throw new IllegalArgumentException("Only student can edit student center");
         }
-        user.setDisplayName(displayName.trim());
-        user.setPhone(phone.trim());
-        user.setMajor(major.trim());
+        user.setDisplayName(requireNonBlank(displayName, "displayName"));
+        user.setPhone(normalizeOptional(phone));
+        user.setMajor(normalizeOptional(major));
         return userAccountRepository.save(user);
+    }
+
+    @Transactional
+    public UserAccount updateStudentCenter(
+        String displayName,
+        Integer age,
+        String gender,
+        String major,
+        String schoolName,
+        String email,
+        String phone
+    ) {
+        UserAccount user = currentUser();
+        if (user.getRole() != UserRole.STUDENT) {
+            throw new IllegalArgumentException("Only student can edit student center");
+        }
+        user.setDisplayName(requireNonBlank(displayName, "displayName"));
+        if (age != null && (age < 0 || age > 120)) {
+            throw new IllegalArgumentException("age must be in [0, 120]");
+        }
+        user.setAge(age);
+        user.setGender(normalizeGender(gender));
+        user.setMajor(normalizeOptional(major));
+        String normalizedSchoolName = requireNonBlank(schoolName, "schoolName");
+        ensureSchoolBindingExists(normalizedSchoolName);
+        user.setSchoolName(normalizedSchoolName);
+        String normalizedEmail = requireNonBlank(email, "email").toLowerCase();
+        if (!user.getEmail().equalsIgnoreCase(normalizedEmail) && userAccountRepository.existsByEmail(normalizedEmail)) {
+            throw new IllegalArgumentException("Email already exists");
+        }
+        user.setEmail(normalizedEmail);
+        user.setPhone(normalizeOptional(phone));
+        return userAccountRepository.save(user);
+    }
+
+    public Map<String, Object> studentCenter() {
+        UserAccount user = currentUser();
+        if (user.getRole() != UserRole.STUDENT) {
+            throw new IllegalArgumentException("Only student can view student center");
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("username", user.getUsername());
+        result.put("displayName", user.getDisplayName());
+        result.put("age", user.getAge());
+        result.put("gender", user.getGender());
+        result.put("major", user.getMajor());
+        result.put("schoolName", user.getSchoolName());
+        result.put("email", user.getEmail());
+        result.put("phone", user.getPhone());
+        return result;
     }
 
     @Transactional
@@ -842,6 +892,28 @@ public class MilestoneService {
             throw new IllegalArgumentException(fieldName + " cannot be blank");
         }
         return value.trim();
+    }
+
+    private String normalizeOptional(String value) {
+        return value == null ? "" : value.trim();
+    }
+
+    private String normalizeGender(String gender) {
+        String normalized = normalizeOptional(gender);
+        if (normalized.isEmpty()) {
+            return "";
+        }
+        String upper = normalized.toUpperCase(Locale.ROOT);
+        if (List.of("MALE", "FEMALE", "OTHER", "男", "女", "其他").contains(upper) || List.of("男", "女", "其他").contains(normalized)) {
+            return normalized;
+        }
+        throw new IllegalArgumentException("gender must be one of MALE/FEMALE/OTHER/男/女/其他");
+    }
+
+    private void ensureSchoolBindingExists(String schoolName) {
+        if (userAccountRepository.findByRoleAndSchoolName(UserRole.SCHOOL, schoolName).isEmpty()) {
+            throw new IllegalArgumentException("schoolName not found in school accounts");
+        }
     }
 
     private StudentDailyActivity loadOrCreateDailyActivity(String studentUsername, LocalDate day) {
